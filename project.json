@@ -1,0 +1,25 @@
+{
+  "overview": "EDUCERT est la plateforme officielle de formation et certification professionnelle du Ministère de la Formation Professionnelle de la RDC. Elle utilise une orchestration IA séquentielle (DeepSeek → Qwen → GPT-4o) pour générer des cours à partir d'une bibliothèque de ressources administrée (PDF, vidéos, liens YouTube, sites web), et délivre des certificats officiels avec filigrane ministériel et QR code de vérification.",
+  "features": [
+    "Bibliothèque de ressources admin (PDF, Word, Excel, HTML, vidéos, liens YouTube)",
+    "Génération IA séquentielle DeepSeek→Qwen→GPT-4o depuis les ressources",
+    "Interface apprenant 'Que voulez-vous apprendre ?' avec recherche sémantique",
+    "Tableau de bord admin avec suivi en temps réel des générations",
+    "Flux d'approbation réviseur ministériel",
+    "Certificats officiels avec filigrane RDC et QR code vérifiable",
+    "4 rôles : apprenant, instructeur, admin, réviseur ministériel",
+    "Citations automatiques des ressources dans chaque leçon générée"
+  ],
+  "category": "education",
+  "tags": [
+    "education",
+    "certification",
+    "ai",
+    "formation",
+    "rdc",
+    "ministere",
+    "cours",
+    "francais"
+  ],
+  "last_updated": "2026-04-27T10:28:27.392Z"
+}

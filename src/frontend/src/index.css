@@ -1,0 +1,183 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-display: "Bricolage Grotesque", sans-serif;
+    --font-body: "DM Sans", sans-serif;
+    --font-mono: "Geist Mono", monospace;
+    --radius: 0.75rem;
+
+    --background: 0.98 0.01 0;
+    --foreground: 0.2 0.02 258;
+    --card: 0.99 0 0;
+    --card-foreground: 0.18 0.02 258;
+    --popover: 0.99 0 0;
+    --popover-foreground: 0.18 0.02 258;
+
+    --primary: 0.4 0.18 258;
+    --primary-foreground: 0.98 0 0;
+
+    --secondary: 0.95 0.01 0;
+    --secondary-foreground: 0.25 0.02 258;
+    --muted: 0.92 0.01 0;
+    --muted-foreground: 0.55 0.01 0;
+
+    --accent: 0.68 0.22 75;
+    --accent-foreground: 0.98 0 0;
+
+    --destructive: 0.52 0.24 15;
+    --destructive-foreground: 0.98 0 0;
+
+    --border: 0.9 0.01 0;
+    --input: 0.96 0.01 0;
+    --ring: 0.4 0.18 258;
+
+    --chart-1: 0.4 0.18 258;
+    --chart-2: 0.68 0.22 75;
+    --chart-3: 0.65 0.18 142;
+    --chart-4: 0.52 0.24 15;
+    --chart-5: 0.72 0.16 142;
+
+    --sidebar: 0.98 0.01 0;
+    --sidebar-foreground: 0.2 0.02 258;
+    --sidebar-primary: 0.4 0.18 258;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.68 0.22 75;
+    --sidebar-accent-foreground: 0.2 0.02 258;
+    --sidebar-border: 0.9 0.01 0;
+    --sidebar-ring: 0.4 0.18 258;
+  }
+
+  .dark {
+    --background: 0.12 0.01 258;
+    --foreground: 0.94 0.01 0;
+    --card: 0.15 0.01 258;
+    --card-foreground: 0.94 0.01 0;
+    --popover: 0.18 0.01 258;
+    --popover-foreground: 0.94 0.01 0;
+
+    --primary: 0.58 0.16 258;
+    --primary-foreground: 0.12 0.01 258;
+
+    --secondary: 0.2 0.01 258;
+    --secondary-foreground: 0.88 0.01 0;
+    --muted: 0.18 0.01 258;
+    --muted-foreground: 0.6 0.01 0;
+
+    --accent: 0.72 0.2 75;
+    --accent-foreground: 0.12 0.01 258;
+
+    --destructive: 0.62 0.22 18;
+    --destructive-foreground: 0.12 0.01 258;
+
+    --border: 0.24 0.01 258;
+    --input: 0.22 0.01 258;
+    --ring: 0.58 0.16 258;
+
+    --chart-1: 0.58 0.16 258;
+    --chart-2: 0.72 0.2 75;
+    --chart-3: 0.7 0.16 142;
+    --chart-4: 0.62 0.22 18;
+    --chart-5: 0.75 0.18 142;
+
+    --sidebar: 0.15 0.01 258;
+    --sidebar-foreground: 0.94 0.01 0;
+    --sidebar-primary: 0.58 0.16 258;
+    --sidebar-primary-foreground: 0.12 0.01 258;
+    --sidebar-accent: 0.72 0.2 75;
+    --sidebar-accent-foreground: 0.12 0.01 258;
+    --sidebar-border: 0.24 0.01 258;
+    --sidebar-ring: 0.58 0.16 258;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/assets/fonts/DMSans.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/assets/fonts/GeistMono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@layer utilities {
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .shadow-card {
+    @apply shadow-[0_1px_3px_0_rgba(0,0,0,0.08),0_1px_2px_-1px_rgba(0,0,0,0.04)];
+  }
+
+  .shadow-elevated {
+    @apply shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)];
+  }
+
+  .shadow-modal {
+    @apply shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)];
+  }
+
+  .gradient-accent {
+    background: linear-gradient(
+      135deg,
+      oklch(var(--primary)) 0%,
+      oklch(var(--accent)) 100%
+    );
+  }
+
+  .gradient-ministry {
+    background: linear-gradient(
+      to right,
+      oklch(var(--primary)),
+      oklch(var(--accent))
+    );
+  }
+
+  .watermark-pattern {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .watermark-pattern::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 35px,
+      oklch(var(--primary) / 0.03) 35px,
+      oklch(var(--primary) / 0.03) 70px
+    );
+    pointer-events: none;
+  }
+
+  .pulse-subtle {
+    @apply animate-pulse;
+    animation-duration: 3s;
+  }
+}

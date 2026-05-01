@@ -1,0 +1,378 @@
+type http_request_result = 
+ record {
+   body: blob;
+   headers: vec http_header;
+   status: nat;
+ };
+type http_header = 
+ record {
+   name: text;
+   value: text;
+ };
+type _ImmutableObjectStorageRefillResult = 
+ record {
+   success: opt bool;
+   topped_up_amount: opt nat;
+ };
+type _ImmutableObjectStorageRefillInformation = record {
+                                                  proposed_top_up_amount:
+                                                   opt nat;};
+type _ImmutableObjectStorageCreateCertificateResult = 
+ record {
+   blob_hash: text;
+   method: text;
+ };
+type UserRole__1 = 
+ variant {
+   admin;
+   guest;
+   user;
+ };
+type UserRole = 
+ variant {
+   admin;
+   instructor;
+   learner;
+   ministryReviewer;
+ };
+type UserProfilePublic = 
+ record {
+   bio: text;
+   createdAt: Timestamp;
+   id: UserId;
+   name: text;
+   role: UserRole;
+ };
+type UserId = principal;
+type TransformationOutput = 
+ record {
+   body: blob;
+   headers: vec http_header;
+   status: nat;
+ };
+type TransformationInput = 
+ record {
+   context: blob;
+   response: http_request_result;
+ };
+type Timestamp = int;
+type ResourceType = 
+ variant {
+   excel;
+   external_course;
+   html;
+   library_book;
+   pdf;
+   video;
+   weblink;
+   word;
+   youtube;
+ };
+type ResourceStatus = 
+ variant {
+   error;
+   indexed;
+   pending;
+ };
+type ResourcePublic = 
+ record {
+   description: text;
+   externalUrl: opt text;
+   extractedText: opt text;
+   fileUrl: opt text;
+   id: nat;
+   keywords: opt vec text;
+   resourceType: ResourceType;
+   status: ResourceStatus;
+   subjects: opt vec text;
+   title: text;
+   uploadedAt: Timestamp;
+   uploadedBy: UserId;
+ };
+type QuizSubmission = 
+ record {
+   answers: vec nat;
+   quizId: QuizId;
+ };
+type QuizResult = 
+ record {
+   correctAnswers: nat;
+   passed: bool;
+   score: nat;
+   totalQuestions: nat;
+ };
+type QuizQuestion = 
+ record {
+   correctOptionIndex: nat;
+   id: nat;
+   options: vec text;
+   question: text;
+ };
+type QuizPublic = 
+ record {
+   courseId: CourseId;
+   id: QuizId;
+   lessonId: LessonId;
+   passingScore: nat;
+   questions: vec QuizQuestion;
+ };
+type QuizId = nat;
+type QuizAttempt = 
+ record {
+   answers: vec nat;
+   attemptedAt: Timestamp;
+   passed: bool;
+   score: nat;
+ };
+type LibrarySearchResult = 
+ record {
+   author: text;
+   coverUrl: opt text;
+   description: text;
+   id: text;
+   previewUrl: opt text;
+   source: text;
+   title: text;
+   url: text;
+   year: opt text;
+ };
+type LibrarySearchQuery = 
+ record {
+   domain: opt text;
+   maxResults: nat;
+   profession: opt text;
+   searchTerm: text;
+ };
+type LessonType = 
+ variant {
+   "text";
+   video;
+ };
+type LessonPublic = 
+ record {
+   content: text;
+   courseId: CourseId;
+   createdAt: Timestamp;
+   hasQuiz: bool;
+   id: LessonId;
+   lessonType: LessonType;
+   order: nat;
+   title: text;
+   videoBlob: opt ExternalBlob;
+ };
+type LessonProgressPublic = 
+ record {
+   completed: bool;
+   lastViewedAt: Timestamp;
+   lessonId: LessonId;
+   quizAttempts: vec QuizAttempt;
+ };
+type LessonInput = 
+ record {
+   content: text;
+   lessonType: LessonType;
+   title: text;
+   videoBlob: opt ExternalBlob;
+ };
+type LessonId = nat;
+type GenerationStatus = 
+ variant {
+   approved;
+   queued;
+   rejected;
+   revision_needed;
+   step1_deepseek;
+   step2_qwen;
+   step3_gpt4o;
+ };
+type ExternalCoursePublic = 
+ record {
+   addedAt: Timestamp;
+   addedBy: UserId;
+   description: text;
+   id: text;
+   platform: text;
+   thumbnailUrl: opt text;
+   title: text;
+   url: text;
+   viewCount: nat;
+ };
+type ExternalBlob = blob;
+type EnrollmentPublic = 
+ record {
+   completedAt: opt Timestamp;
+   completionPercent: nat;
+   courseId: CourseId;
+   enrolledAt: Timestamp;
+   lastLessonId: opt LessonId;
+   learnerId: UserId;
+   lessonProgress: vec LessonProgressPublic;
+ };
+type Difficulty = 
+ variant {
+   advanced;
+   beginner;
+   intermediate;
+ };
+type CoursePublic = 
+ record {
+   category: text;
+   createdAt: Timestamp;
+   description: text;
+   difficulty: Difficulty;
+   id: CourseId;
+   instructorId: UserId;
+   isPublished: bool;
+   learningOutcomes: vec text;
+   thumbnail: opt ExternalBlob;
+   title: text;
+   updatedAt: Timestamp;
+ };
+type CourseInput = 
+ record {
+   category: text;
+   description: text;
+   difficulty: Difficulty;
+   learningOutcomes: vec text;
+   thumbnail: opt ExternalBlob;
+   title: text;
+ };
+type CourseId = nat;
+type CourseGenerationPublic = 
+ record {
+   aiModelConfig: AIModelConfig;
+   createdAt: Timestamp;
+   errorMessage: opt text;
+   generatedCourseId: opt CourseId;
+   id: nat;
+   libraryResultsCount: nat;
+   requestDescription: text;
+   requestedBy: UserId;
+   resourceIds: vec nat;
+   status: GenerationStatus;
+   steps: vec AIStep;
+   updatedAt: Timestamp;
+ };
+type CertificateVerification = 
+ record {
+   courseTitle: text;
+   isValid: bool;
+   issueDate: Timestamp;
+   ministryApproved: bool;
+ };
+type CertificateId = text;
+type Certificate = 
+ record {
+   approvedAt: opt Timestamp;
+   courseId: CourseId;
+   courseTitle: text;
+   id: CertificateId;
+   instructorName: text;
+   isMinistryApproved: bool;
+   issuedAt: Timestamp;
+   learnerId: UserId;
+   learnerName: text;
+   ministryReviewerName: opt text;
+   qrCodePayload: text;
+   resourceCitations: vec text;
+ };
+type AIStep = 
+ record {
+   completedAt: opt Timestamp;
+   model: text;
+   output: opt text;
+   step: nat;
+ };
+type AIModelConfig = 
+ record {
+   contentModel: text;
+   structureModel: text;
+   validationModel: text;
+ };
+service : {
+  _immutableObjectStorageBlobsAreLive: (hashes: vec blob) -> (vec bool) query;
+  _immutableObjectStorageBlobsToDelete: () -> (vec blob) query;
+  _immutableObjectStorageConfirmBlobDeletion: (blobs: vec blob) -> ();
+  _immutableObjectStorageCreateCertificate: (blobHash: text) ->
+   (_ImmutableObjectStorageCreateCertificateResult);
+  _immutableObjectStorageRefillCashier: (refillInformation:
+   opt _ImmutableObjectStorageRefillInformation) ->
+   (_ImmutableObjectStorageRefillResult);
+  _immutableObjectStorageUpdateGatewayPrincipals: () -> ();
+  _initializeAccessControl: () -> ();
+  addExternalCourse: (url: text, title: text, description: text, platform:
+   text, thumbnailUrl: opt text) ->
+   (variant {
+      err: text;
+      ok: ExternalCoursePublic;
+    });
+  addLesson: (courseId: CourseId, input: LessonInput) -> (LessonId);
+  approveGeneratedCourse: (generationId: nat, reviewerNotes: text) ->
+   (CourseGenerationPublic);
+  assignCallerUserRole: (user: principal, role: UserRole__1) -> ();
+  createCourse: (input: CourseInput) -> (CourseId);
+  deleteCourse: (courseId: CourseId) -> ();
+  deleteExternalCourse: (id: text) -> (variant {
+                                         err: text;
+                                         ok;
+                                       });
+  deleteLesson: (lessonId: LessonId) -> ();
+  deleteQuiz: (lessonId: LessonId) -> ();
+  deleteResource: (id: nat) -> ();
+  enrollCourse: (courseId: CourseId) -> ();
+  getAdminModelConfig: () -> (AIModelConfig) query;
+  getCallerUserProfile: () -> (opt UserProfilePublic) query;
+  getCallerUserRole: () -> (UserRole__1) query;
+  getCertificate: (certId: CertificateId) -> (opt Certificate) query;
+  getCourse: (courseId: CourseId) -> (opt CoursePublic) query;
+  getCourseEnrollments: (courseId: CourseId) -> (vec EnrollmentPublic) query;
+  getGenerationStatus: (generationId: nat) ->
+   (opt CourseGenerationPublic) query;
+  getInstructorCourses: () -> (vec CoursePublic) query;
+  getLessons: (courseId: CourseId) -> (vec LessonPublic) query;
+  getMyCertificates: () -> (vec Certificate) query;
+  getMyEnrollments: () -> (vec EnrollmentPublic) query;
+  getQuiz: (lessonId: LessonId) -> (opt QuizPublic) query;
+  getResource: (id: nat) -> (opt ResourcePublic) query;
+  getUserProfile: (userId: UserId) -> (opt UserProfilePublic) query;
+  indexResourceText: (id: nat, extractedText: text) -> ();
+  isCallerAdmin: () -> (bool) query;
+  listAllGenerations: () -> (vec CourseGenerationPublic) query;
+  listCourses: (category: opt text) -> (vec CoursePublic) query;
+  listExternalCourses: () -> (vec ExternalCoursePublic) query;
+  listMyGenerations: () -> (vec CourseGenerationPublic) query;
+  listResources: (resourceType: opt ResourceType, search: opt text) ->
+   (vec ResourcePublic) query;
+  markLessonComplete: (courseId: CourseId, lessonId: LessonId) -> ();
+  rejectGeneratedCourse: (generationId: nat, reason: text) ->
+   (CourseGenerationPublic);
+  reorderLesson: (lessonId: LessonId, newOrder: nat) -> ();
+  requestCourseGeneration: (description: text, resourceIds: opt vec nat) ->
+   (CourseGenerationPublic);
+  runAIGeneration: (generationId: nat) -> ();
+  saveCallerUserProfile: (name: text, bio: text, role: UserRole) -> ();
+  saveLastViewedLesson: (courseId: CourseId, lessonId: LessonId) -> ();
+  searchCourses: (searchTerm: text, category: opt text) ->
+   (vec CoursePublic) query;
+  searchWorldLibraries: (searchQuery: LibrarySearchQuery) ->
+   (vec LibrarySearchResult);
+  setAdminModelConfig: (config: AIModelConfig) -> ();
+  setCoursePublished: (courseId: CourseId, published: bool) -> ();
+  setQuiz: (lessonId: LessonId, questions: vec QuizQuestion, passingScore:
+   nat) -> (QuizId);
+  submitQuiz: (courseId: CourseId, submission: QuizSubmission) ->
+   (QuizResult);
+  trackExternalCourseView: (id: text) -> ();
+  transformHttpResponse: (input: TransformationInput) ->
+   (TransformationOutput) query;
+  unenrollCourse: (courseId: CourseId) -> ();
+  updateCourse: (courseId: CourseId, input: CourseInput) -> ();
+  updateLesson: (lessonId: LessonId, input: LessonInput) -> ();
+  updateResourceMetadata: (id: nat, title: text, description: text, keywords:
+   opt vec text, subjects: opt vec text) -> (ResourcePublic);
+  uploadResource: (title: text, description: text, resourceType:
+   ResourceType, fileUrl: opt text, externalUrl: opt text, keywords:
+   opt vec text) -> (ResourcePublic);
+  verifyCertificateQR: (qrPayload: text) ->
+   (opt CertificateVerification) query;
+}

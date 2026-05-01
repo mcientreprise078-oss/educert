@@ -1,0 +1,350 @@
+// Version: 3.0.0
+type AIModelConfig__1164069 =
+  {contentModel : Text; structureModel : Text; validationModel : Text};
+type AIStep__121948411 =
+  {
+    completedAt : ?Timestamp__301639476;
+    model : Text;
+    output : ?Text;
+    step : Nat
+  };
+type CertificateId__417577722 = Text;
+type Certificate__592097419 =
+  {
+    approvedAt : ?Timestamp__301639476;
+    courseId : CourseId__927523888;
+    courseTitle : Text;
+    id : CertificateId__417577722;
+    instructorName : Text;
+    isMinistryApproved : Bool;
+    issuedAt : Timestamp__301639476;
+    learnerId : UserId__158757552;
+    learnerName : Text;
+    ministryReviewerName : ?Text;
+    qrCodePayload : Text;
+    resourceCitations : [Text]
+  };
+type CourseGeneration__64857604 =
+  {
+    var aiModelConfig : AIModelConfig__1164069;
+    createdAt : Timestamp__301639476;
+    var errorMessage : ?Text;
+    var generatedCourseId : ?CourseId__927523888;
+    id : Nat;
+    var libraryResultsCount : Nat;
+    requestDescription : Text;
+    requestedBy : UserId__158757552;
+    resourceIds : [Nat];
+    var status : GenerationStatus__708827039;
+    var steps : [AIStep__121948411];
+    var updatedAt : Timestamp__301639476
+  };
+type CourseId__927523888 = Nat;
+type Course__321233390 =
+  {
+    var category : Text;
+    createdAt : Timestamp__301639476;
+    var description : Text;
+    var difficulty : Difficulty__35234462;
+    id : CourseId__927523888;
+    instructorId : UserId__158757552;
+    var isPublished : Bool;
+    var learningOutcomes : [Text];
+    var thumbnail : ?ExternalBlob__671167343;
+    var title : Text;
+    var updatedAt : Timestamp__301639476
+  };
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type Difficulty__35234462 = {#advanced; #beginner; #intermediate};
+type Enrollment__857736828 =
+  {
+    var completedAt : ?Timestamp__301639476;
+    courseId : CourseId__927523888;
+    enrolledAt : Timestamp__301639476;
+    var lastLessonId : ?LessonId__21783266;
+    learnerId : UserId__158757552;
+    var lessonProgress : [LessonProgress__80166999]
+  };
+type ExternalBlob__671167343 = Blob;
+type ExternalCourse__305848196 =
+  {
+    addedAt : Timestamp__301639476;
+    addedBy : UserId__158757552;
+    var description : Text;
+    id : Text;
+    platform : Text;
+    var thumbnailUrl : ?Text;
+    var title : Text;
+    url : Text;
+    var viewCount : Nat
+  };
+type GenerationStatus__708827039 =
+  {
+    #approved;
+    #queued;
+    #rejected;
+    #revision_needed;
+    #step1_deepseek;
+    #step2_qwen;
+    #step3_gpt4o
+  };
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type LessonId__21783266 = Nat;
+type LessonProgress__80166999 =
+  {
+    var completed : Bool;
+    var lastViewedAt : Timestamp__301639476;
+    lessonId : LessonId__21783266;
+    var quizAttempts : [QuizAttempt__995573549]
+  };
+type LessonType__757412212 = {#text; #video};
+type Lesson__402185661 =
+  {
+    var content : Text;
+    courseId : CourseId__927523888;
+    createdAt : Timestamp__301639476;
+    id : LessonId__21783266;
+    var lessonType : LessonType__757412212;
+    var order : Nat;
+    var title : Text;
+    var videoBlob : ?ExternalBlob__671167343
+  };
+type Map__158565046<K, V> = Map__297112838<K, V>;
+type Map__297112838<K, V> =
+  {var root : Node__46230540<K, V>; var size : Nat__490723111};
+type Map__605269027<K, V> = Map__158565046<K, V>;
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type OldAIStep__944921147 =
+  {
+    completedAt : ?OldTimestamp__27916213;
+    model : Text;
+    output : ?Text;
+    step : Nat
+  };
+type OldCourseGeneration__431996126 =
+  {
+    createdAt : OldTimestamp__27916213;
+    var errorMessage : ?Text;
+    var generatedCourseId : ?OldCourseId__965914253;
+    id : Nat;
+    requestDescription : Text;
+    requestedBy : OldUserId__580276348;
+    resourceIds : [Nat];
+    var status : OldGenerationStatus__320919332;
+    var steps : [OldAIStep__944921147];
+    var updatedAt : OldTimestamp__27916213
+  };
+type OldCourseId__965914253 = Nat;
+type OldGenerationStatus__320919332 =
+  {
+    #approved;
+    #queued;
+    #rejected;
+    #revision_needed;
+    #step1_deepseek;
+    #step2_qwen;
+    #step3_gpt4o
+  };
+type OldResourceStatus__284575106 = {#error; #indexed; #pending};
+type OldResourceType__79733491 =
+  {#excel; #html; #pdf; #video; #weblink; #word; #youtube};
+type OldResource__682541847 =
+  {
+    var description : Text;
+    externalUrl : ?Text;
+    var extractedText : ?Text;
+    fileUrl : ?Text;
+    id : Nat;
+    var keywords : ?[Text];
+    resourceType : OldResourceType__79733491;
+    var status : OldResourceStatus__284575106;
+    var subjects : ?[Text];
+    var title : Text;
+    uploadedAt : OldTimestamp__27916213;
+    uploadedBy : OldUserId__580276348
+  };
+type OldTimestamp__27916213 = Int;
+type OldUserId__580276348 = Principal;
+type QuizAttempt__995573549 =
+  {
+    answers : [Nat];
+    attemptedAt : Timestamp__301639476;
+    passed : Bool;
+    score : Nat
+  };
+type QuizId__438791917 = Nat;
+type QuizQuestion__108518885 =
+  {correctOptionIndex : Nat; id : Nat; options : [Text]; question : Text};
+type Quiz__409330606 =
+  {
+    courseId : CourseId__927523888;
+    id : QuizId__438791917;
+    lessonId : LessonId__21783266;
+    var passingScore : Nat;
+    var questions : [QuizQuestion__108518885]
+  };
+type ResourceStatus__235132859 = {#error; #indexed; #pending};
+type ResourceType__788816361 =
+  {
+    #excel;
+    #external_course;
+    #html;
+    #library_book;
+    #pdf;
+    #video;
+    #weblink;
+    #word;
+    #youtube
+  };
+type Resource__736884683 =
+  {
+    var description : Text;
+    externalUrl : ?Text;
+    var extractedText : ?Text;
+    fileUrl : ?Text;
+    id : Nat;
+    var keywords : ?[Text];
+    resourceType : ResourceType__788816361;
+    var status : ResourceStatus__235132859;
+    var subjects : ?[Text];
+    var title : Text;
+    uploadedAt : Timestamp__301639476;
+    uploadedBy : UserId__158757552
+  };
+type Timestamp__301639476 = Int;
+type UserId__158757552 = Principal;
+type UserProfile__277265826 =
+  {
+    var bio : Text;
+    createdAt : Timestamp__301639476;
+    id : UserId__158757552;
+    var name : Text;
+    var role : UserRole__41952412
+  };
+type UserRole__1073662873 = {#admin; #guest; #user};
+type UserRole__41952412 = {#admin; #instructor; #learner; #ministryReviewer};
+actor ({
+  stable OPENROUTER_API_KEY : Text;
+  stable OPENROUTER_URL : Text;
+  stable accessControlState :
+    {
+      var adminAssigned : Bool;
+      userRoles : Map__605269027<Principal, UserRole__1073662873>
+    };
+  stable adminModelConfig : {var value : AIModelConfig__1164069};
+  stable certificates :
+    {
+      var root :
+        Node__46230540<CertificateId__417577722, Certificate__592097419>;
+      var size : Nat__490723111
+    };
+  stable courses :
+    {
+      var root : Node__46230540<CourseId__927523888, Course__321233390>;
+      var size : Nat__490723111
+    };
+  stable enrollments :
+    {
+      var root :
+        Node__46230540<(UserId__158757552, CourseId__927523888),
+                        Enrollment__857736828>;
+      var size : Nat__490723111
+    };
+  stable externalCourses :
+    {
+      var root : Node__46230540<Text, ExternalCourse__305848196>;
+      var size : Nat__490723111
+    };
+  in generations : Map__605269027<Nat, OldCourseGeneration__431996126>;
+  stable lessons :
+    {
+      var root : Node__46230540<LessonId__21783266, Lesson__402185661>;
+      var size : Nat__490723111
+    };
+  stable nextCourseId : {var value : CourseId__927523888};
+  stable nextExternalCourseId : {var value : Nat};
+  stable nextGenerationId : {var value : Nat};
+  stable nextLessonId : {var value : LessonId__21783266};
+  stable nextQuizId : {var value : QuizId__438791917};
+  stable nextResourceId : {var value : Nat};
+  stable quizzes :
+    {
+      var root : Node__46230540<QuizId__438791917, Quiz__409330606>;
+      var size : Nat__490723111
+    };
+  in resources : Map__605269027<Nat, OldResource__682541847>;
+  stable userProfiles :
+    {
+      var root : Node__46230540<UserId__158757552, UserProfile__277265826>;
+      var size : Nat__490723111
+    }
+}, {
+  stable OPENROUTER_API_KEY : Text;
+  stable OPENROUTER_URL : Text;
+  stable accessControlState :
+    {
+      var adminAssigned : Bool;
+      userRoles : Map__605269027<Principal, UserRole__1073662873>
+    };
+  stable adminModelConfig : {var value : AIModelConfig__1164069};
+  stable certificates :
+    {
+      var root :
+        Node__46230540<CertificateId__417577722, Certificate__592097419>;
+      var size : Nat__490723111
+    };
+  stable courses :
+    {
+      var root : Node__46230540<CourseId__927523888, Course__321233390>;
+      var size : Nat__490723111
+    };
+  stable enrollments :
+    {
+      var root :
+        Node__46230540<(UserId__158757552, CourseId__927523888),
+                        Enrollment__857736828>;
+      var size : Nat__490723111
+    };
+  stable externalCourses :
+    {
+      var root : Node__46230540<Text, ExternalCourse__305848196>;
+      var size : Nat__490723111
+    };
+  stable generations :
+    {
+      var root : Node__46230540<Nat, CourseGeneration__64857604>;
+      var size : Nat__490723111
+    };
+  stable lessons :
+    {
+      var root : Node__46230540<LessonId__21783266, Lesson__402185661>;
+      var size : Nat__490723111
+    };
+  stable nextCourseId : {var value : CourseId__927523888};
+  stable nextExternalCourseId : {var value : Nat};
+  stable nextGenerationId : {var value : Nat};
+  stable nextLessonId : {var value : LessonId__21783266};
+  stable nextQuizId : {var value : QuizId__438791917};
+  stable nextResourceId : {var value : Nat};
+  stable quizzes :
+    {
+      var root : Node__46230540<QuizId__438791917, Quiz__409330606>;
+      var size : Nat__490723111
+    };
+  stable resources :
+    {
+      var root : Node__46230540<Nat, Resource__736884683>;
+      var size : Nat__490723111
+    };
+  stable userProfiles :
+    {
+      var root : Node__46230540<UserId__158757552, UserProfile__277265826>;
+      var size : Nat__490723111
+    }
+}) ;
