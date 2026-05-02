@@ -8,9 +8,13 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   BookOpen,
+  Camera,
   CheckCircle,
   GraduationCap,
+  ImageIcon,
+  Loader2,
   Shield,
+  SkipForward,
   Star,
 } from "lucide-react";
 import { useState } from "react";
@@ -160,7 +164,10 @@ export default function OnboardingPage() {
 
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [name, setName] = useState("");
-  const [step, setStep] = useState<"role" | "name">("role");
+  const [step, setStep] = useState<"role" | "name" | "photo">("role");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   if (!isAuthenticated) {
     navigate({ to: "/" });
@@ -180,13 +187,40 @@ export default function OnboardingPage() {
 
   const handleSubmit = async () => {
     if (!name.trim() || !selectedRole) return;
+    // Go to photo step instead of submitting directly
+    setStep("photo");
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleFinish = async (skipPhoto = false) => {
+    if (!name.trim() || !selectedRole) return;
+    let avatarUrl: string | null = null;
+    if (!skipPhoto && photoPreview) {
+      // Store the data URL directly in the profile (works without object-storage)
+      avatarUrl = photoPreview;
+    }
     try {
-      await saveProfile.mutateAsync({ name: name.trim(), role: selectedRole });
+      setPhotoUploading(true);
+      await saveProfile.mutateAsync({
+        name: name.trim(),
+        role: selectedRole,
+        ...(avatarUrl ? { avatarUrl } : {}),
+      });
       toast.success("Profil créé avec succès !");
       const redirectTo = REDIRECT_BY_ROLE[selectedRole] ?? "/catalog";
       navigate({ to: redirectTo });
     } catch {
       toast.error("Erreur lors de la création du profil. Veuillez réessayer.");
+    } finally {
+      setPhotoUploading(false);
     }
   };
 
@@ -341,10 +375,104 @@ export default function OnboardingPage() {
               {saveProfile.isPending
                 ? "Création du profil..."
                 : isManagementRole
-                  ? "Accéder à l'espace d'administration"
-                  : "Accéder à la plateforme"}
+                  ? "Continuer"
+                  : "Continuer"}
               <ArrowRight className="size-4 ml-1" />
             </Button>
+          </div>
+        )}
+
+        {/* Step 3 — Profile photo */}
+        {step === "photo" && selectedRole && (
+          <div
+            className="bg-card border border-border rounded-xl p-6 shadow-card space-y-5"
+            data-ocid="onboarding.photo_form"
+          >
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-3">
+                <div className="rounded-full bg-primary/10 p-3">
+                  <Camera className="size-6 text-primary" />
+                </div>
+              </div>
+              <h2 className="font-display font-semibold text-foreground text-lg">
+                Photo de profil
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Votre photo apparaîtra sur vos certificats officiels.
+              </p>
+            </div>
+
+            {/* Photo preview / upload area */}
+            <label
+              htmlFor="photo-upload"
+              className="block cursor-pointer"
+              data-ocid="onboarding.photo_dropzone"
+            >
+              <div
+                className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-colors p-6 ${
+                  photoPreview
+                    ? "border-primary/40 bg-primary/5"
+                    : "border-border bg-muted/30 hover:bg-muted/50 hover:border-primary/30"
+                }`}
+              >
+                {photoPreview ? (
+                  <img
+                    src={photoPreview}
+                    alt="Aperçu"
+                    className="size-24 rounded-full object-cover border-4 border-primary/20 shadow-md"
+                  />
+                ) : (
+                  <div className="size-24 rounded-full bg-muted/60 border-2 border-dashed border-border flex items-center justify-center">
+                    <ImageIcon className="size-10 text-muted-foreground" />
+                  </div>
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {photoPreview
+                    ? "Cliquez pour changer la photo"
+                    : "Cliquez pour choisir une photo"}
+                </span>
+                <span className="text-xs text-muted-foreground/70">
+                  JPG, PNG, WEBP — max 5 Mo
+                </span>
+              </div>
+              <input
+                id="photo-upload"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={handlePhotoChange}
+              />
+            </label>
+
+            <div className="flex flex-col gap-2">
+              <Button
+                className="w-full h-11 gap-2"
+                onClick={() => handleFinish(false)}
+                disabled={!photoFile || photoUploading || saveProfile.isPending}
+                data-ocid="onboarding.photo_submit_button"
+              >
+                {photoUploading || saveProfile.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />{" "}
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="size-4" /> Enregistrer avec ma photo
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full h-10 gap-2 text-muted-foreground"
+                onClick={() => handleFinish(true)}
+                disabled={photoUploading || saveProfile.isPending}
+                data-ocid="onboarding.skip_photo_button"
+              >
+                <SkipForward className="size-4" />
+                Ignorer pour l'instant
+              </Button>
+            </div>
           </div>
         )}
       </div>

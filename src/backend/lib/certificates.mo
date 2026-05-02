@@ -14,6 +14,7 @@ module {
     learnerName : Text,
     courseTitle : Text,
     instructorName : Text,
+    portfolioPhotoUrl : ?Text,
   ) : CertTypes.Certificate {
     let now = Time.now();
     // Identifiant unique : timestamp + principal + courseId
@@ -33,6 +34,7 @@ module {
       qrCodePayload = qrPayload;
       isMinistryApproved = false;
       approvedAt = null;
+      portfolioPhotoUrl;
     };
   };
 
@@ -44,8 +46,9 @@ module {
     courseTitle : Text,
     instructorName : Text,
     resourceCitations : [Text],
+    portfolioPhotoUrl : ?Text,
   ) : CertTypes.Certificate {
-    let base = generate(learnerId, courseId, learnerName, courseTitle, instructorName);
+    let base = generate(learnerId, courseId, learnerName, courseTitle, instructorName, portfolioPhotoUrl);
     { base with resourceCitations };
   };
 

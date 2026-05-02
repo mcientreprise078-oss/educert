@@ -23,11 +23,12 @@ mixin (
     name : Text,
     bio : Text,
     role : UserTypes.UserRole,
+    avatarUrl : ?Text,
   ) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Login required");
     };
-    UsersLib.saveProfile(userProfiles, caller, name, bio, role);
+    UsersLib.saveProfile(userProfiles, caller, name, bio, role, avatarUrl);
   };
 
   /// Fetch any user's profile by principal

@@ -5,6 +5,9 @@ import AccessControl "mo:caffeineai-authorization/access-control";
 import ResourceLib "../lib/resources";
 import ResourceTypes "../types/resources";
 import Common "../types/common";
+import Outcall "mo:caffeineai-http-outcalls/outcall";
+import Text "mo:core/Text";
+import Principal "mo:core/Principal";
 
 mixin (
   accessControlState : AccessControl.AccessControlState,
@@ -13,6 +16,93 @@ mixin (
   externalCourses : Map.Map<Text, ResourceTypes.ExternalCourse>,
   nextExternalCourseId : { var value : Nat },
 ) {
+  // ── Clé API Google Docs / Drive ──
+  let GOOGLE_DOCS_API_KEY = "AIzaSyBPCJvRree9Ff0aBYrZNtXtQu9Rd1x8G2w";
+
+  // ── Transformation canonique IC pour les outcalls ──
+  public query func transformResourcesHttpResponse(input : Outcall.TransformationInput) : async Outcall.TransformationOutput {
+    Outcall.transform(input);
+  };
+
+  // ── Extrait le texte d'un document Google Docs via l'API REST ──
+  // docUrl doit être au format : https://docs.google.com/document/d/{docId}/
+  func extractGoogleDocId(docUrl : Text) : ?Text {
+    // Format attendu : .../document/d/{docId}/...
+    let marker = "/document/d/";
+    let parts = docUrl.split(#text marker);
+    ignore parts.next();
+    switch (parts.next()) {
+      case null { null };
+      case (?rest) {
+        // Le docId se termine au prochain '/' ou à la fin
+        var id = "";
+        var done = false;
+        for (c in rest.toIter()) {
+          if (done) {}
+          else if (c == '/') { done := true }
+          else { id #= Text.fromChar(c) };
+        };
+        if (id.size() > 0) { ?id } else { null };
+      };
+    };
+  };
+
+  // ── Extrait le texte brut du corps JSON d'un document Google Docs ──
+  func extractGoogleDocText(json : Text) : Text {
+    // Parcourt le tableau body.content et concatène les paragraphes
+    var text = "";
+    let marker = "\"content\":\"";
+    var parts = json.split(#text marker);
+    ignore parts.next();
+    label extractLoop loop {
+      switch (parts.next()) {
+        case null { break extractLoop };
+        case (?chunk) {
+          var segment = "";
+          var done = false;
+          var escape = false;
+          for (c in chunk.toIter()) {
+            if (done) {}
+            else if (escape) {
+              if (c == 'n') { segment #= "\n" }
+              else { segment #= Text.fromChar(c) };
+              escape := false;
+            } else if (c == '\\') {
+              escape := true;
+            } else if (c == '\"') {
+              done := true;
+            } else {
+              segment #= Text.fromChar(c);
+            };
+          };
+          if (segment.size() > 0) { text #= segment # " " };
+        };
+      };
+    };
+    text;
+  };
+
+  /// Importe un document Google Docs par son URL et retourne le texte extrait
+  func importGoogleDoc(docUrl : Text) : async Text {
+    let docId = switch (extractGoogleDocId(docUrl)) {
+      case null { Runtime.trap("URL Google Docs invalide. Format attendu : https://docs.google.com/document/d/{docId}/") };
+      case (?id) { id };
+    };
+    let apiUrl = "https://docs.googleapis.com/v1/documents/" # docId # "?key=" # GOOGLE_DOCS_API_KEY;
+    let response = try {
+      await Outcall.httpGetRequest(apiUrl, [], transformResourcesHttpResponse);
+    } catch (e) {
+      Runtime.trap("Erreur lors de l'importation du document Google Docs : " # e.message());
+    };
+    if (response.size() == 0) {
+      Runtime.trap("Réponse vide de l'API Google Docs. Vérifiez que le document est accessible publiquement.");
+    };
+    let extracted = extractGoogleDocText(response);
+    if (extracted.size() == 0) {
+      Runtime.trap("Aucun contenu textuel trouvé dans le document Google Docs.");
+    };
+    extracted;
+  };
   /// Upload d'une nouvelle ressource (admin uniquement) — sans limite de nombre
   public shared ({ caller }) func uploadResource(
     title : Text,
@@ -168,6 +258,47 @@ mixin (
     } else {
       #err("Cours externe introuvable")
     };
+  };
+
+  /// Importe un document Google Docs et crée une ressource (admin uniquement)
+  /// docUrl : URL du document (ex: https://docs.google.com/document/d/{docId}/edit)
+  public shared ({ caller }) func importGoogleDocResource(
+    docUrl : Text,
+    title : Text,
+    adminId : Principal,
+  ) : async { #ok : Nat; #err : Text } {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      return #err("Non autorisé : rôle administrateur requis");
+    };
+    if (docUrl.size() == 0) {
+      return #err("L'URL du document Google Docs est requise");
+    };
+    if (title.size() == 0) {
+      return #err("Le titre du document est requis");
+    };
+    let extractedText = try {
+      await importGoogleDoc(docUrl);
+    } catch (e) {
+      return #err("Erreur lors de l'importation du document Google Docs : " # e.message());
+    };
+    let now = Time.now();
+    let id = nextResourceId.value;
+    nextResourceId.value += 1;
+    let resource = ResourceLib.create(
+      id,
+      title,
+      "Document importé depuis Google Docs : " # docUrl,
+      #weblink,
+      null,
+      ?docUrl,
+      null,
+      adminId,
+      now,
+    );
+    resource.extractedText := ?extractedText;
+    resource.status := #indexed;
+    resources.add(id, resource);
+    #ok(id);
   };
 
   /// Incrémente le compteur de vues d'un cours externe (utilisateurs authentifiés)

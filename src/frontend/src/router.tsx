@@ -44,6 +44,9 @@ const AdminSettingsPage = () =>
   import("@/pages/AdminSettingsPage").then((m) => ({ default: m.default }));
 const GenerateCoursePage = () =>
   import("@/pages/GenerateCoursePage").then((m) => ({ default: m.default }));
+const ResearchPage = () =>
+  import("@/pages/ResearchPage").then((m) => ({ default: m.default }));
+
 const CertificateVerifyPage = () =>
   import("@/pages/CertificateVerifyPage").then((m) => ({ default: m.default }));
 
@@ -135,6 +138,11 @@ const instructorCourseEditRoute = createRoute({
   component: () => <LazyPage loader={InstructorCourseEditPage} />,
 });
 
+const AdminLearnersPage = () =>
+  import("@/pages/AdminLearnersPage").then((m) => ({ default: m.default }));
+const AdminDomainsPage = () =>
+  import("@/pages/AdminDomainsPage").then((m) => ({ default: m.default }));
+
 // ---- Admin & special routes ----
 
 const adminDashboardRoute = createRoute({
@@ -167,10 +175,28 @@ const adminSettingsRoute = createRoute({
   component: () => <LazyPage loader={AdminSettingsPage} />,
 });
 
+const adminLearnersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/learners",
+  component: () => <LazyPage loader={AdminLearnersPage} />,
+});
+
+const adminDomainsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/domains",
+  component: () => <LazyPage loader={AdminDomainsPage} />,
+});
+
 const generateCourseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/generate",
   component: () => <LazyPage loader={GenerateCoursePage} />,
+});
+
+const researchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/research",
+  component: () => <LazyPage loader={ResearchPage} />,
 });
 
 const certificateVerifyRoute = createRoute({
@@ -196,7 +222,10 @@ const routeTree = rootRoute.addChildren([
   adminGenerationsRoute,
   adminApprovalsRoute,
   adminSettingsRoute,
+  adminLearnersRoute,
+  adminDomainsRoute,
   generateCourseRoute,
+  researchRoute,
   certificateVerifyRoute,
 ]);
 

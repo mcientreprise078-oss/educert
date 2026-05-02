@@ -15,5 +15,6 @@ module {
     qrCodePayload : Text;
     isMinistryApproved : Bool;
     approvedAt : ?Common.Timestamp;
+    portfolioPhotoUrl : ?Text;  // URL de la photo portrait de l'apprenant sur le certificat
   };
 };

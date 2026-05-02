@@ -21,8 +21,29 @@ mixin (
   adminModelConfig : { var value : GenTypes.AIModelConfig },
 ) {
   // ── Clé API OpenRouter (à définir dans les variables d'environnement du canister) ──
-  let OPENROUTER_API_KEY = "sk-or-replace-with-env-key";
+  // NOTE: La clé fournie est partiellement masquée. Remplacez 'sk-ef855d58e' par votre clé réelle complète.
+  let OPENROUTER_API_KEY = "sk-ef855d58e";
   let OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+  // ── Résout le preset IA → configuration concrète des modèles ──
+  func resolvePreset(preset : GenTypes.AIModelPreset) : GenTypes.AIModelConfig {
+    switch (preset) {
+      case (#default) {
+        { structureModel = "deepseek/deepseek-r1"; contentModel = "qwen/qwen-2.5-72b-instruct"; validationModel = "openai/gpt-4o" };
+      };
+      case (#claudeValidation) {
+        { structureModel = "deepseek/deepseek-r1"; contentModel = "qwen/qwen-2.5-72b-instruct"; validationModel = "anthropic/claude-3-5-sonnet" };
+      };
+      case (#gpt5Validation) {
+        { structureModel = "deepseek/deepseek-r1"; contentModel = "qwen/qwen-2.5-72b-instruct"; validationModel = "openai/gpt-4o" };
+      };
+      case (#fullClaude) {
+        { structureModel = "anthropic/claude-3-5-sonnet"; contentModel = "anthropic/claude-3-5-sonnet"; validationModel = "anthropic/claude-3-5-sonnet" };
+      };
+      case (#gemini_flash) {
+        { structureModel = "google/gemini-flash-1.5"; contentModel = "google/gemini-flash-1.5"; validationModel = "google/gemini-flash-1.5" };
+      };
+    };
+  };
 
   // ── Transformation canonique pour les réponses HTTP (exigée par l'IC) ──
   public query func transformHttpResponse(input : Outcall.TransformationInput) : async Outcall.TransformationOutput {
@@ -137,37 +158,61 @@ mixin (
   };
 
   // ── Étape 1 : modèle de structure (défaut DeepSeek) ──
+  // ── Étape 1 : modèle de structure (défaut DeepSeek) + recherche YouTube des vidéos pertinentes ──
   func runStep1Structure(gen : GenTypes.CourseGeneration) : async Text {
     let resourceSummary = buildResourceSummary(gen.resourceIds);
-    let systemPrompt = "Tu es un expert en ingénierie pédagogique. Génère en français une structure de cours professionnelle (objectifs, plan des leçons, prérequis, résultats attendus) basée sur la description et les ressources fournies. Réponds en JSON structuré.";
+    let systemPrompt = "Tu es un expert en ingénierie pédagogique. Génère en français une structure de cours professionnelle (objectifs, plan des leçons, prérequis, résultats attendus) basée sur la description et les ressources fournies. Réponds en JSON structuré. Si des vidéos YouTube sont fournies, inclus leurs identifiants comme marqueurs [VIDEO:videoId] aux endroits pertinents dans la structure.";
+    // Recherche des vidéos YouTube pertinentes pour enrichir le cours
+    let ytVideos = try {
+      await searchYouTubeVideos(gen.requestDescription, 3);
+    } catch (_) { [] };
+    let ytSection = if (ytVideos.size() > 0) {
+      let ytList = ytVideos.foldLeft("", func(acc, v) {
+        let vid = switch (v.videoId) { case (?id) { id }; case null { "" } };
+        if (vid.size() == 0) { acc }
+        else { acc # "\n- [VIDEO:" # vid # "] " # v.title }
+      });
+      "\n\nVidéos YouTube pertinentes disponibles :" # ytList
+    } else { "" };
     let userPrompt = "Description du cours: " # gen.requestDescription
       # "\n\nRessources disponibles:" # resourceSummary
-      # "\n\nGénère la structure pédagogique complète en JSON.";
+      # ytSection
+      # "\n\nGénère la structure pédagogique complète en JSON. Intègre les marqueurs [VIDEO:videoId] aux endroits appropriés dans les leçons.";
     let body = buildOpenRouterBody(gen.aiModelConfig.structureModel, systemPrompt, userPrompt);
     let headers = [
       { name = "Authorization"; value = "Bearer " # OPENROUTER_API_KEY },
       { name = "Content-Type"; value = "application/json" },
       { name = "HTTP-Referer"; value = "https://educert.ic" },
     ];
-    await Outcall.httpPostRequest(OPENROUTER_URL, headers, body, transformHttpResponse);
+    try {
+      await Outcall.httpPostRequest(OPENROUTER_URL, headers, body, transformHttpResponse);
+    } catch (e) {
+      Runtime.trap("Erreur API DeepSeek (étape 1 - structure) : " # e.message());
+    };
   };
 
   // ── Étape 2 : modèle de contenu (défaut Qwen) — contenu des leçons en français ──
+  // ── Étape 2 : modèle de contenu (défaut Qwen) — contenu des leçons en français ──
   func runStep2Content(gen : GenTypes.CourseGeneration, structure : Text) : async Text {
     let resourceSummary = buildResourceSummary(gen.resourceIds);
-    let systemPrompt = "Tu es un rédacteur pédagogique expert. Sur la base de la structure fournie, génère en français le contenu complet et détaillé de chaque leçon. Utilise un ton formel et académique. Cite les ressources utilisées.";
+    let systemPrompt = "Tu es un rédacteur pédagogique expert. Sur la base de la structure fournie, génère en français le contenu complet et détaillé de chaque leçon. Utilise un ton formel et académique. Cite les ressources utilisées. Conserve les marqueurs [VIDEO:videoId] aux endroits indiqués.";
     let userPrompt = "Structure du cours:\n" # structure
       # "\n\nRessources:\n" # resourceSummary
-      # "\n\nGénère le contenu complet de toutes les leçons en français.";
+      # "\n\nGénère le contenu complet de toutes les leçons en français. Conserve les marqueurs [VIDEO:videoId] dans le contenu.";
     let body = buildOpenRouterBody(gen.aiModelConfig.contentModel, systemPrompt, userPrompt);
     let headers = [
       { name = "Authorization"; value = "Bearer " # OPENROUTER_API_KEY },
       { name = "Content-Type"; value = "application/json" },
       { name = "HTTP-Referer"; value = "https://educert.ic" },
     ];
-    await Outcall.httpPostRequest(OPENROUTER_URL, headers, body, transformHttpResponse);
+    try {
+      await Outcall.httpPostRequest(OPENROUTER_URL, headers, body, transformHttpResponse);
+    } catch (e) {
+      Runtime.trap("Erreur API Qwen (étape 2 - contenu) : " # e.message());
+    };
   };
 
+  // ── Étape 3 : modèle de validation (défaut GPT-4o) ──
   // ── Étape 3 : modèle de validation (défaut GPT-4o) ──
   func runStep3Validation(gen : GenTypes.CourseGeneration, structure : Text, content : Text) : async Text {
     let systemPrompt = "Tu es un validateur pédagogique du Ministère de la Formation Professionnelle de la RDC. Évalue le cours fourni selon les critères : cohérence pédagogique, qualité du contenu en français, alignement avec les objectifs. Réponds en JSON avec les champs: approved (boolean), notes (text), suggestions (array of strings).";
@@ -181,7 +226,11 @@ mixin (
       { name = "Content-Type"; value = "application/json" },
       { name = "HTTP-Referer"; value = "https://educert.ic" },
     ];
-    await Outcall.httpPostRequest(OPENROUTER_URL, headers, body, transformHttpResponse);
+    try {
+      await Outcall.httpPostRequest(OPENROUTER_URL, headers, body, transformHttpResponse);
+    } catch (e) {
+      Runtime.trap("Erreur API GPT-4o (étape 3 - validation) : " # e.message());
+    };
   };
 
   // ── Helper : détermine si le modèle de validation approuve ──
@@ -191,21 +240,19 @@ mixin (
   };
 
   // ── Parse un résultat Open Library (JSON minimal) ──
+  // ── Parse un résultat Open Library (JSON minimal) ──
   func parseOpenLibraryResults(json : Text, maxResults : Nat) : [ResourceTypes.LibrarySearchResult] {
-    // Locate each "key" field in docs array to identify entries
     var results : [ResourceTypes.LibrarySearchResult] = [];
     var count = 0;
-    // Split by doc separator pattern: each doc starts with a `{` after `"docs":[`
     let docsMarker = "\"docs\":[";
     let parts = json.split(#text docsMarker);
-    ignore parts.next(); // skip before docs
+    ignore parts.next();
     switch (parts.next()) {
       case null {};
       case (?docsSection) {
-        // Find each title entry
         let titleMarker = "\"title\":\"";
         var docParts = docsSection.split(#text titleMarker);
-        ignore docParts.next(); // skip prefix
+        ignore docParts.next();
         label docLoop loop {
           if (count >= maxResults) { break docLoop };
           switch (docParts.next()) {
@@ -227,6 +274,8 @@ mixin (
                 url;
                 previewUrl = null;
                 coverUrl = null;
+                videoId = null;
+                sourceType = ?"book";
               }]);
               count += 1;
             };
@@ -237,6 +286,7 @@ mixin (
     results;
   };
 
+  // ── Parse un résultat Gutendex ──
   // ── Parse un résultat Gutendex ──
   func parseGutenbergResults(json : Text, maxResults : Nat) : [ResourceTypes.LibrarySearchResult] {
     var results : [ResourceTypes.LibrarySearchResult] = [];
@@ -263,6 +313,8 @@ mixin (
             url;
             previewUrl = ?(url # ".txt.utf-8");
             coverUrl = null;
+            videoId = null;
+            sourceType = ?"book";
           }]);
           count += 1;
         };
@@ -271,6 +323,7 @@ mixin (
     results;
   };
 
+  // ── Parse un résultat Internet Archive ──
   // ── Parse un résultat Internet Archive ──
   func parseArchiveResults(json : Text, maxResults : Nat) : [ResourceTypes.LibrarySearchResult] {
     var results : [ResourceTypes.LibrarySearchResult] = [];
@@ -298,6 +351,8 @@ mixin (
             url;
             previewUrl = null;
             coverUrl = null;
+            videoId = null;
+            sourceType = ?"book";
           }]);
           count += 1;
         };
@@ -306,6 +361,7 @@ mixin (
     results;
   };
 
+  // ── Parse un résultat Google Books ──
   // ── Parse un résultat Google Books ──
   func parseGoogleBooksResults(json : Text, maxResults : Nat) : [ResourceTypes.LibrarySearchResult] {
     var results : [ResourceTypes.LibrarySearchResult] = [];
@@ -338,12 +394,72 @@ mixin (
             url;
             previewUrl = null;
             coverUrl = if (thumbnail.size() > 0) { ?thumbnail } else { null };
+            videoId = null;
+            sourceType = ?"book";
           }]);
           count += 1;
         };
       };
     };
     results;
+  };
+
+  // ── YouTube Data API ──
+  let YOUTUBE_API_KEY = "AIzaSyBqFSGMLcLfOx2UxVmQJKwbMFZByxSe1Ho";
+  let YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
+
+  // ── Parse les résultats de l'API YouTube Data v3 ──
+  func parseYouTubeResults(json : Text, maxResults : Nat) : [ResourceTypes.LibrarySearchResult] {
+    var results : [ResourceTypes.LibrarySearchResult] = [];
+    var count = 0;
+    let marker = "\"videoId\":\"";
+    var parts = json.split(#text marker);
+    ignore parts.next();
+    label ytLoop loop {
+      if (count >= maxResults) { break ytLoop };
+      switch (parts.next()) {
+        case null { break ytLoop };
+        case (?chunk) {
+          let videoId = extractJsonStringValue(chunk);
+          if (videoId.size() == 0) { break ytLoop };
+          let title = extractJsonStringAfterKey(chunk, "\"title\":\"");
+          let description = extractJsonStringAfterKey(chunk, "\"description\":\"");
+          let thumbnail = extractJsonStringAfterKey(chunk, "\"url\":\"");
+          let channelTitle = extractJsonStringAfterKey(chunk, "\"channelTitle\":\"");
+          let url = "https://youtube.com/watch?v=" # videoId;
+          results := results.concat([{
+            id = "yt-" # videoId;
+            title = if (title.size() > 0) { title } else { "Vidéo YouTube" };
+            author = channelTitle;
+            year = null;
+            source = "YouTube";
+            description = if (description.size() > 0) { description } else { "Vidéo disponible sur YouTube" };
+            url;
+            previewUrl = if (thumbnail.size() > 0) { ?thumbnail } else { null };
+            coverUrl = ?("https://img.youtube.com/vi/" # videoId # "/hqdefault.jpg");
+            videoId = ?videoId;
+            sourceType = ?"youtube";
+          }]);
+          count += 1;
+        };
+      };
+    };
+    results;
+  };
+
+  /// Recherche des vidéos YouTube via l'API Data v3
+  func searchYouTubeVideos(searchQuery : Text, maxResults : Nat) : async [ResourceTypes.LibrarySearchResult] {
+    let encodedQuery = urlEncode(searchQuery);
+    let url = YOUTUBE_SEARCH_URL
+      # "?part=snippet&q=" # encodedQuery
+      # "&key=" # YOUTUBE_API_KEY
+      # "&maxResults=" # maxResults.toText()
+      # "&type=video";
+    let resp = try {
+      await Outcall.httpGetRequest(url, [], transformHttpResponse);
+    } catch (_) { return [] };
+    if (resp.size() == 0) { return [] };
+    parseYouTubeResults(resp, maxResults);
   };
 
   // ── Utilitaires d'extraction JSON minimal ──
@@ -424,6 +540,68 @@ mixin (
       .replace(#text "#", "%23");
   };
 
+  /// Génère un quiz de chapitre en appelant Qwen via OpenRouter
+  /// Retourne une chaîne JSON contenant 5-8 questions à choix multiples
+  public shared ({ caller }) func generateChapterQuiz(
+    courseId : Common.CourseId,
+    lessonId : Common.LessonId,
+    lessonContent : Text,
+  ) : async { #ok : Text; #err : Text } {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : connexion requise");
+    };
+    if (lessonContent.size() == 0) {
+      return #err("Le contenu de la leçon est requis pour générer un quiz");
+    };
+    let systemPrompt = "Tu es un expert en évaluation pédagogique. Génère en français entre 5 et 8 questions à choix multiples basées sur le contenu fourni. Réponds UNIQUEMENT avec un tableau JSON valide au format: [{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correctOptionIndex\": 0, \"explanation\": \"...\"}]. Aucun texte avant ou après le JSON.";
+    let userPrompt = "Contenu de la leçon (cours " # courseId.toText() # ", leçon " # lessonId.toText() # "):\n\n" # lessonContent;
+    let body = buildOpenRouterBody("qwen/qwen-2.5-72b-instruct", systemPrompt, userPrompt);
+    let headers = [
+      { name = "Authorization"; value = "Bearer " # OPENROUTER_API_KEY },
+      { name = "Content-Type"; value = "application/json" },
+      { name = "HTTP-Referer"; value = "https://educert.ic" },
+    ];
+    try {
+      let raw = await Outcall.httpPostRequest(OPENROUTER_URL, headers, body, transformHttpResponse);
+      #ok(extractContent(raw));
+    } catch (e) {
+      #err("Erreur lors de la génération du quiz : " # e.message());
+    };
+  };
+
+  /// Recherche dans les bibliothèques réelles via HTTP outcalls
+  /// sources : liste de sources parmi ["openlibrary", "googlebooks"]
+  /// Retourne un tableau de chaînes JSON brutes (une par source)
+  /// Recherche dans les bibliothèques réelles via HTTP outcalls
+  public shared ({ caller }) func searchRealLibraries(
+    searchTerm : Text,
+    sources : [Text],
+  ) : async [Text] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : connexion requise");
+    };
+    if (searchTerm.size() == 0) { return [] };
+    let term = urlEncode(searchTerm);
+    var results : [Text] = [];
+    // Open Library
+    if (sources.size() == 0 or sources.find(func(s) { s == "openlibrary" }) != null) {
+      let url = "https://openlibrary.org/search.json?q=" # term # "&limit=10";
+      let resp = try {
+        await Outcall.httpGetRequest(url, [], transformHttpResponse);
+      } catch (_) { "" };
+      if (resp.size() > 0) { results := results.concat([resp]) };
+    };
+    // Google Books — avec clé API
+    if (sources.size() == 0 or sources.find(func(s) { s == "googlebooks" }) != null) {
+      let url = "https://www.googleapis.com/books/v1/volumes?q=" # term # "&maxResults=10&key=AIzaSyBPCJvRree9Ff0aBYrZNtXtQu9Rd1x8G2w";
+      let resp = try {
+        await Outcall.httpGetRequest(url, [], transformHttpResponse);
+      } catch (_) { "" };
+      if (resp.size() > 0) { results := results.concat([resp]) };
+    };
+    results;
+  };
+
   /// Récupère la configuration des modèles IA actuellement active (admin)
   public query ({ caller }) func getAdminModelConfig() : async GenTypes.AIModelConfig {
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
@@ -462,15 +640,15 @@ mixin (
   };
 
   // ── Implémentation interne de la recherche dans les bibliothèques mondiales ──
+  // ── Implémentation interne de la recherche dans les bibliothèques mondiales ──
   func searchLibrariesInternal(searchQuery : ResourceTypes.LibrarySearchQuery) : async [ResourceTypes.LibrarySearchResult] {
     let term = urlEncode(searchQuery.searchTerm);
     let perLib = if (searchQuery.maxResults > 0) { searchQuery.maxResults } else { 10 };
 
-    // Lancer les 4 appels HTTP séquentiellement (les outcalls IC ne peuvent pas être en parallèle dans un même call)
     let openLibUrl = "https://openlibrary.org/search.json?q=" # term # "&limit=" # perLib.toText();
     let gutenbergUrl = "https://gutendex.com/books?search=" # term # "&page_size=" # perLib.toText();
     let archiveUrl = "https://archive.org/advancedsearch.php?q=" # term # "&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=description&fl[]=date&rows=" # perLib.toText() # "&output=json";
-    let googleBooksUrl = "https://www.googleapis.com/books/v1/volumes?q=" # term # "&maxResults=" # perLib.toText();
+    let googleBooksUrl = "https://www.googleapis.com/books/v1/volumes?q=" # term # "&maxResults=" # perLib.toText() # "&key=AIzaSyBPCJvRree9Ff0aBYrZNtXtQu9Rd1x8G2w";
 
     var allResults : [ResourceTypes.LibrarySearchResult] = [];
 
@@ -498,13 +676,19 @@ mixin (
       allResults := allResults.concat(parseArchiveResults(iaResponse, perLib));
     };
 
-    // Google Books
+    // Google Books — avec clé API
     let gbResponse = try {
       await Outcall.httpGetRequest(googleBooksUrl, [], transformHttpResponse);
     } catch (_) { "" };
     if (gbResponse.size() > 0) {
       allResults := allResults.concat(parseGoogleBooksResults(gbResponse, perLib));
     };
+
+    // YouTube — vidéos pertinentes
+    let ytResults = try {
+      await searchYouTubeVideos(searchQuery.searchTerm, perLib);
+    } catch (_) { [] };
+    allResults := allResults.concat(ytResults);
 
     allResults;
   };

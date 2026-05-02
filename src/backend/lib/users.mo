@@ -16,6 +16,7 @@ module {
       var name;
       var bio;
       var role;
+      var avatarUrl = null;
       createdAt = Time.now();
     };
   };
@@ -26,6 +27,7 @@ module {
       name = self.name;
       bio = self.bio;
       role = self.role;
+      avatarUrl = self.avatarUrl;
       createdAt = self.createdAt;
     };
   };
@@ -46,15 +48,19 @@ module {
     name : Text,
     bio : Text,
     role : Types.UserRole,
+    avatarUrl : ?Text,
   ) : () {
     switch (profiles.get(id)) {
       case (?existing) {
         existing.name := name;
         existing.bio := bio;
         existing.role := role;
+        existing.avatarUrl := avatarUrl;
       };
       case null {
-        profiles.add(id, newProfile(id, name, bio, role));
+        let p = newProfile(id, name, bio, role);
+        p.avatarUrl := avatarUrl;
+        profiles.add(id, p);
       };
     };
   };

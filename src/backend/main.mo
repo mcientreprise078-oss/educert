@@ -17,9 +17,22 @@ import ProgressMixin "mixins/progress-api";
 import CertsMixin "mixins/certificates-api";
 import ResourcesMixin "mixins/resources-api";
 import GenerationMixin "mixins/generation-api";
-import Migration "migration";
+import DomainTypes "types/domains";
+import DomainsMixin "mixins/domains-api";
+import List "mo:core/List";
+import TutorTypes "types/tutor";
+import ResearchTypes "types/research";
+import NotifTypes "types/notifications";
+import TutorMixin "mixins/tutor-api";
+import ResearchMixin "mixins/research-api";
+import NotifMixin "mixins/notifications-api";
 
-(with migration = Migration.run)
+
+
+
+
+
+
 actor {
   // --- Authorization ---
   let accessControlState = AccessControl.initState();
@@ -50,8 +63,13 @@ actor {
   // --- Certificates ---
   let certificates = Map.empty<Common.CertificateId, CertTypes.Certificate>();
 
+  // --- Domains (catégories VIP) ---
+  let domains = Map.empty<Nat, DomainTypes.Domain>();
+  let nextDomainId = { var value : Nat = 0 };
+  include DomainsMixin(accessControlState, domains, nextDomainId);
+
   include ProgressMixin(accessControlState, courses, lessons, quizzes, enrollments, userProfiles, certificates);
-  include CertsMixin(accessControlState, userProfiles, certificates);
+  include CertsMixin(accessControlState, userProfiles, certificates, courses, domains);
 
   // --- Resources (admin uploads) — sans limite de nombre ---
   let resources = Map.empty<Nat, ResourceTypes.Resource>();
@@ -69,4 +87,19 @@ actor {
     validationModel = "openai/gpt-4o";
   }};
   include GenerationMixin(accessControlState, generations, nextGenerationId, resources, courses, nextCourseId, adminModelConfig);
+
+  // --- Tuteur IA ---
+  let tutorMessages = List.empty<TutorTypes.TutorMessage>();
+  let nextTutorMessageId = { var value : Nat = 0 };
+  include TutorMixin(accessControlState, tutorMessages, nextTutorMessageId);
+
+  // --- Recherche scientifique (TFC/mémoire/thèse) ---
+  let researchProjects = Map.empty<Nat, ResearchTypes.ResearchProject>();
+  let nextResearchId = { var value : Nat = 0 };
+  include ResearchMixin(accessControlState, researchProjects, nextResearchId, resources);
+
+  // --- Notifications in-app ---
+  let notifications = Map.empty<Nat, NotifTypes.Notification>();
+  let nextNotifId = { var value : Nat = 0 };
+  include NotifMixin(accessControlState, notifications, nextNotifId, enrollments);
 };

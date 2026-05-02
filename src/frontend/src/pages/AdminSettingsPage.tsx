@@ -17,10 +17,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { useGetAdminModelConfig, useSetAdminModelConfig } from "@/lib/queries";
 import type { AIModelConfig } from "@/lib/types";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Bot, ChevronRight, Save, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  Bell,
+  Bot,
+  ChevronRight,
+  Crown,
+  ExternalLink,
+  Save,
+  Zap,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -40,6 +50,11 @@ const STRUCTURE_MODEL_OPTIONS = [
     label: "Claude Opus",
     description: "Haute précision analytique",
   },
+  {
+    value: "Gemini Flash",
+    label: "Gemini Flash",
+    description: "Ultra-rapide, idéal pour les ébauches",
+  },
 ];
 
 const CONTENT_MODEL_OPTIONS = [
@@ -57,6 +72,11 @@ const CONTENT_MODEL_OPTIONS = [
     value: "Claude Sonnet",
     label: "Claude Sonnet",
     description: "Style naturel et pédagogique",
+  },
+  {
+    value: "Gemini Flash",
+    label: "Gemini Flash",
+    description: "Génération rapide en français",
   },
 ];
 
@@ -76,6 +96,11 @@ const VALIDATION_MODEL_OPTIONS = [
     value: "Claude Sonnet",
     label: "Claude Sonnet",
     description: "Équilibre vitesse/qualité",
+  },
+  {
+    value: "Gemini Flash",
+    label: "Gemini Flash",
+    description: "Google Gemini — rapide et fiable",
   },
 ];
 
@@ -134,6 +159,11 @@ export default function AdminSettingsPage() {
   const navigate = useNavigate();
   const { data: config, isLoading } = useGetAdminModelConfig();
   const setConfig = useSetAdminModelConfig();
+  const notificationsEnabled = true;
+  const setNotifications = {
+    mutate: (_v: boolean, _opts?: object) => {},
+    isPending: false,
+  };
   const [local, setLocal] = useState<AIModelConfig>({
     structureModel: "DeepSeek R1",
     contentModel: "Qwen 72B",
@@ -215,6 +245,29 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Gemini Flash badge */}
+          <Card className="border-amber-400/30 bg-amber-500/5">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-amber-500/10 p-2.5 shrink-0">
+                  <Zap className="size-4 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Gemini Flash (Google) disponible
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Nouveau modèle ultra-rapide de Google intégré dans toutes
+                    les étapes de génération.
+                  </p>
+                </div>
+                <span className="shrink-0 text-[10px] bg-amber-500/15 text-amber-700 border border-amber-400/30 rounded-full px-2 py-1 font-semibold uppercase tracking-wide">
+                  Nouveau
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Model config card */}
           <Card data-ocid="admin_settings.model_config_card">
             <CardHeader className="pb-2">
@@ -274,6 +327,73 @@ export default function AdminSettingsPage() {
                   />
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* VIP Domains shortcut */}
+          <Card
+            className="cursor-pointer hover:bg-muted/30 transition-colors"
+            data-ocid="admin_settings.vip_domains_card"
+            onClick={() => navigate({ to: "/admin/domains" })}
+          >
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-primary/10 p-2.5 shrink-0">
+                  <Crown className="size-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Gérer les domaines VIP
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Catégoriser les domaines complexes, activer l'approbation
+                    manuelle pour les certificats Premium.
+                  </p>
+                </div>
+                <ExternalLink className="size-4 text-muted-foreground shrink-0" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* In-app notifications toggle */}
+          <Card data-ocid="admin_settings.notifications_card">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Bell className="size-4 text-accent" />
+                Notifications in-app
+              </CardTitle>
+              <CardDescription>
+                Activez l'IA Booster pour envoyer des rappels automatiques aux
+                apprenants inactifs depuis plus de 24h.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    IA Booster — Rappels automatiques
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    L'IA analyse l'inactivité et envoie des messages
+                    personnalisés aux apprenants en décrochage.
+                  </p>
+                </div>
+                <Switch
+                  checked={notificationsEnabled}
+                  onCheckedChange={(checked) =>
+                    setNotifications.mutate(checked, {
+                      onSuccess: () =>
+                        toast.success(
+                          checked
+                            ? "Notifications activées"
+                            : "Notifications désactivées",
+                        ),
+                    })
+                  }
+                  data-ocid="admin_settings.notifications_toggle"
+                  aria-label="Activer les notifications in-app"
+                />
+              </div>
             </CardContent>
           </Card>
 

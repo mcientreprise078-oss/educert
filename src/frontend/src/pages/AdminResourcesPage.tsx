@@ -18,6 +18,7 @@ import {
   useAddExternalCourse,
   useDeleteExternalCourse,
   useDeleteResource,
+  useImportGoogleDoc,
   useIndexResourceText,
   useListExternalCourses,
   useListResources,
@@ -32,6 +33,7 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
+  FileUp,
   Globe,
   Link2,
   Pencil,
@@ -1130,6 +1132,93 @@ function ExternalCoursesTab() {
   );
 }
 
+// ---- Google Docs import panel ----
+
+function GoogleDocsImportPanel() {
+  const importGoogleDoc = useImportGoogleDoc();
+  const [docUrl, setDocUrl] = useState("");
+  const [title, setTitle] = useState("");
+
+  const handleImport = () => {
+    if (!docUrl.trim()) {
+      toast.error("L'URL du document est requise");
+      return;
+    }
+    if (!title.trim()) {
+      toast.error("Le titre du document est requis");
+      return;
+    }
+    importGoogleDoc.mutate(
+      { docUrl: docUrl.trim(), title: title.trim(), userId: "current" },
+      {
+        onSuccess: () => {
+          toast.success("Document importé avec succès");
+          setDocUrl("");
+          setTitle("");
+        },
+        onError: () => toast.error("Erreur lors de l'importation du document"),
+      },
+    );
+  };
+
+  return (
+    <Card
+      className="border-border"
+      data-ocid="admin_resources.google_docs_panel"
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <FileUp className="size-3.5 text-primary" />
+          </div>
+          Importer depuis Google Docs
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="gdoc-url">URL du document Google Docs</Label>
+          <Input
+            id="gdoc-url"
+            value={docUrl}
+            onChange={(e) => setDocUrl(e.target.value)}
+            placeholder="https://docs.google.com/document/d/..."
+            data-ocid="admin_resources.google_docs_url_input"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="gdoc-title">Titre du document</Label>
+          <Input
+            id="gdoc-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ex : Guide de gestion de projet..."
+            data-ocid="admin_resources.google_docs_title_input"
+          />
+        </div>
+        <Button
+          size="sm"
+          className="gap-2"
+          onClick={handleImport}
+          disabled={importGoogleDoc.isPending}
+          data-ocid="admin_resources.google_docs_import_button"
+        >
+          {importGoogleDoc.isPending ? (
+            <>
+              <RefreshCw className="size-3.5 animate-spin" />
+              Importation...
+            </>
+          ) : (
+            <>
+              <FileUp className="size-3.5" />
+              Importer le document
+            </>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ---- Resources tab ----
 
 function ResourcesTab() {
@@ -1363,6 +1452,7 @@ function ResourcesTab() {
         </CardContent>
       </Card>
 
+      <GoogleDocsImportPanel />
       <UploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)} />
       {editResource && (
         <EditMetadataDialog

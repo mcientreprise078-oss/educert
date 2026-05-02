@@ -37,6 +37,7 @@ type UserRole =
  };
 type UserProfilePublic = 
  record {
+   avatarUrl: opt text;
    bio: text;
    createdAt: Timestamp;
    id: UserId;
@@ -44,6 +45,21 @@ type UserProfilePublic =
    role: UserRole;
  };
 type UserId = principal;
+type TutorMessageRole = 
+ variant {
+   assistant;
+   user;
+ };
+type TutorMessage = 
+ record {
+   content: text;
+   courseId: CourseId;
+   createdAt: Timestamp;
+   id: nat;
+   lessonId: LessonId;
+   role: TutorMessageRole;
+   userId: UserId;
+ };
 type TransformationOutput = 
  record {
    body: blob;
@@ -89,6 +105,45 @@ type ResourcePublic =
    uploadedAt: Timestamp;
    uploadedBy: UserId;
  };
+type ResearchStepDataPublic = 
+ record {
+   aiResponse: text;
+   content: text;
+   resources: vec text;
+   step: ResearchStep;
+   validated: bool;
+   validatedAt: opt Timestamp;
+ };
+type ResearchStep = 
+ variant {
+   hypotheses;
+   methodologie;
+   plan;
+   problematique;
+   redaction;
+   sujet;
+ };
+type ResearchStatus = 
+ variant {
+   completed;
+   draft;
+   in_progress;
+ };
+type ResearchProjectPublic = 
+ record {
+   createdAt: Timestamp;
+   currentStep: ResearchStep;
+   id: nat;
+   resourceCitations: vec text;
+   status: ResearchStatus;
+   steps: vec record {
+                ResearchStep;
+                ResearchStepDataPublic;
+              };
+   title: text;
+   updatedAt: Timestamp;
+   userId: UserId;
+ };
 type QuizSubmission = 
  record {
    answers: vec nat;
@@ -124,6 +179,25 @@ type QuizAttempt =
    passed: bool;
    score: nat;
  };
+type NotificationType = 
+ variant {
+   certificate_issued;
+   course_update;
+   inactivity_reminder;
+   quiz_ready;
+   research_feedback;
+ };
+type NotificationPublic = 
+ record {
+   courseId: opt CourseId;
+   createdAt: Timestamp;
+   id: nat;
+   isRead: bool;
+   message: text;
+   notificationType: NotificationType;
+   title: text;
+   userId: UserId;
+ };
 type LibrarySearchResult = 
  record {
    author: text;
@@ -132,8 +206,10 @@ type LibrarySearchResult =
    id: text;
    previewUrl: opt text;
    source: text;
+   sourceType: opt text;
    title: text;
    url: text;
+   videoId: opt text;
    year: opt text;
  };
 type LibrarySearchQuery = 
@@ -208,6 +284,21 @@ type EnrollmentPublic =
    learnerId: UserId;
    lessonProgress: vec LessonProgressPublic;
  };
+type DomainTier = 
+ variant {
+   standard;
+   vip;
+ };
+type Domain = 
+ record {
+   createdAt: Timestamp;
+   createdBy: UserId;
+   description: text;
+   id: nat;
+   name: text;
+   requiresManualApproval: bool;
+   tier: DomainTier;
+ };
 type Difficulty = 
  variant {
    advanced;
@@ -273,6 +364,7 @@ type Certificate =
    learnerId: UserId;
    learnerName: text;
    ministryReviewerName: opt text;
+   portfolioPhotoUrl: opt text;
    qrCodePayload: text;
    resourceCitations: vec text;
  };
@@ -309,9 +401,42 @@ service : {
   addLesson: (courseId: CourseId, input: LessonInput) -> (LessonId);
   approveGeneratedCourse: (generationId: nat, reviewerNotes: text) ->
    (CourseGenerationPublic);
+  askTutor:
+   (record {
+      courseId: CourseId;
+      lessonContext: text;
+      lessonId: LessonId;
+      question: text;
+    }) -> (variant {
+             err: text;
+             ok: TutorMessage;
+           });
   assignCallerUserRole: (user: principal, role: UserRole__1) -> ();
+  clearMyNotifications: () -> (variant {
+                                 err: text;
+                                 ok;
+                               });
+  clearTutorHistory: (record {courseId: CourseId;}) ->
+   (variant {
+      err: text;
+      ok;
+    });
   createCourse: (input: CourseInput) -> (CourseId);
+  createDomain: (name: text, tier: DomainTier, description: text,
+   requiresManualApproval: bool) -> (variant {
+                                       err: text;
+                                       ok: Domain;
+                                     });
+  createResearchProject: (record {title: text;}) ->
+   (variant {
+      err: text;
+      ok: ResearchProjectPublic;
+    });
   deleteCourse: (courseId: CourseId) -> ();
+  deleteDomain: (id: nat) -> (variant {
+                                err: text;
+                                ok;
+                              });
   deleteExternalCourse: (id: text) -> (variant {
                                          err: text;
                                          ok;
@@ -320,6 +445,16 @@ service : {
   deleteQuiz: (lessonId: LessonId) -> ();
   deleteResource: (id: nat) -> ();
   enrollCourse: (courseId: CourseId) -> ();
+  generateCertificate: (courseId: CourseId) -> (Certificate);
+  generateChapterQuiz: (courseId: CourseId, lessonId: LessonId,
+   lessonContent: text) -> (variant {
+                              err: text;
+                              ok: text;
+                            });
+  generateInactivityNotifications: () -> (variant {
+                                            err: text;
+                                            ok: nat;
+                                          });
   getAdminModelConfig: () -> (AIModelConfig) query;
   getCallerUserProfile: () -> (opt UserProfilePublic) query;
   getCallerUserRole: () -> (UserRole__1) query;
@@ -332,30 +467,65 @@ service : {
   getLessons: (courseId: CourseId) -> (vec LessonPublic) query;
   getMyCertificates: () -> (vec Certificate) query;
   getMyEnrollments: () -> (vec EnrollmentPublic) query;
+  getMyNotifications: (record {unreadOnly: bool;}) ->
+   (vec NotificationPublic) query;
   getQuiz: (lessonId: LessonId) -> (opt QuizPublic) query;
+  getResearchProject: (record {projectId: nat;}) ->
+   (variant {
+      err: text;
+      ok: ResearchProjectPublic;
+    }) query;
   getResource: (id: nat) -> (opt ResourcePublic) query;
   getUserProfile: (userId: UserId) -> (opt UserProfilePublic) query;
+  importGoogleDocResource: (docUrl: text, title: text, adminId: principal) ->
+   (variant {
+      err: text;
+      ok: nat;
+    });
   indexResourceText: (id: nat, extractedText: text) -> ();
   isCallerAdmin: () -> (bool) query;
   listAllGenerations: () -> (vec CourseGenerationPublic) query;
   listCourses: (category: opt text) -> (vec CoursePublic) query;
+  listDomains: () -> (vec Domain) query;
   listExternalCourses: () -> (vec ExternalCoursePublic) query;
   listMyGenerations: () -> (vec CourseGenerationPublic) query;
+  listMyResearchProjects: () -> (vec ResearchProjectPublic) query;
   listResources: (resourceType: opt ResourceType, search: opt text) ->
    (vec ResourcePublic) query;
+  markAllNotificationsRead: () -> (variant {
+                                     err: text;
+                                     ok;
+                                   });
   markLessonComplete: (courseId: CourseId, lessonId: LessonId) -> ();
+  markNotificationRead: (record {notifId: nat;}) -> (variant {
+                                                       err: text;
+                                                       ok;
+                                                     });
+  queryTutorHistory: (record {courseId: CourseId;}) ->
+   (vec TutorMessage) query;
   rejectGeneratedCourse: (generationId: nat, reason: text) ->
    (CourseGenerationPublic);
   reorderLesson: (lessonId: LessonId, newOrder: nat) -> ();
   requestCourseGeneration: (description: text, resourceIds: opt vec nat) ->
    (CourseGenerationPublic);
   runAIGeneration: (generationId: nat) -> ();
-  saveCallerUserProfile: (name: text, bio: text, role: UserRole) -> ();
+  saveCallerUserProfile: (name: text, bio: text, role: UserRole, avatarUrl:
+   opt text) -> ();
   saveLastViewedLesson: (courseId: CourseId, lessonId: LessonId) -> ();
   searchCourses: (searchTerm: text, category: opt text) ->
    (vec CoursePublic) query;
+  searchRealLibraries: (searchTerm: text, sources: vec text) -> (vec text);
   searchWorldLibraries: (searchQuery: LibrarySearchQuery) ->
    (vec LibrarySearchResult);
+  sendResearchMessage:
+   (record {
+      projectId: nat;
+      step: ResearchStep;
+      userInput: text;
+    }) -> (variant {
+             err: text;
+             ok: text;
+           });
   setAdminModelConfig: (config: AIModelConfig) -> ();
   setCoursePublished: (courseId: CourseId, published: bool) -> ();
   setQuiz: (lessonId: LessonId, questions: vec QuizQuestion, passingScore:
@@ -365,14 +535,35 @@ service : {
   trackExternalCourseView: (id: text) -> ();
   transformHttpResponse: (input: TransformationInput) ->
    (TransformationOutput) query;
+  transformNotifHttpResponse: (input: TransformationInput) ->
+   (TransformationOutput) query;
+  transformResearchHttpResponse: (input: TransformationInput) ->
+   (TransformationOutput) query;
+  transformResourcesHttpResponse: (input: TransformationInput) ->
+   (TransformationOutput) query;
+  transformTutorHttpResponse: (input: TransformationInput) ->
+   (TransformationOutput) query;
   unenrollCourse: (courseId: CourseId) -> ();
   updateCourse: (courseId: CourseId, input: CourseInput) -> ();
+  updateDomain: (id: nat, tier: DomainTier, requiresManualApproval: bool) ->
+   (variant {
+      err: text;
+      ok: Domain;
+    });
   updateLesson: (lessonId: LessonId, input: LessonInput) -> ();
   updateResourceMetadata: (id: nat, title: text, description: text, keywords:
    opt vec text, subjects: opt vec text) -> (ResourcePublic);
   uploadResource: (title: text, description: text, resourceType:
    ResourceType, fileUrl: opt text, externalUrl: opt text, keywords:
    opt vec text) -> (ResourcePublic);
+  validateResearchStep: (record {
+                           projectId: nat;
+                           step: ResearchStep;
+                         }) ->
+   (variant {
+      err: text;
+      ok: ResearchProjectPublic;
+    });
   verifyCertificateQR: (qrPayload: text) ->
    (opt CertificateVerification) query;
 }

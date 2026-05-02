@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGetCertificates } from "@/lib/queries";
+import { useGetCertificates, useListDomains } from "@/lib/queries";
+import type { Domain } from "@/lib/types";
 import type { Certificate } from "@/lib/types";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -14,12 +15,15 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Crown,
   Download,
   ExternalLink,
   QrCode,
   Share2,
   Shield,
+  Star,
   Trophy,
+  User,
   UserCheck,
 } from "lucide-react";
 import { useState } from "react";
@@ -124,6 +128,10 @@ function generateMinistryPDF(cert: Certificate): void {
       </div>`
     : `<div class="ministry-pending"><p>En attente d'approbation ministérielle</p></div>`;
 
+  const portraitHtml = cert.portfolioPhotoUrl
+    ? `<img class="portrait" src="${cert.portfolioPhotoUrl}" alt="Photo de l'apprenant" />`
+    : `<div class="portrait-placeholder"><span>👤</span></div>`;
+
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -133,8 +141,10 @@ function generateMinistryPDF(cert: Certificate): void {
   @page { size: A4 landscape; margin: 0; }
   body { font-family: Georgia, "Times New Roman", serif; background: #fff; color: #1a1a3e; margin: 0; padding: 0; }
   .page { width: 277mm; min-height: 190mm; padding: 14mm 18mm; box-sizing: border-box; border: 6px solid #1a237e; position: relative; }
-  .page::before { content: "EDUCERT"; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-30deg); font-size: 100px; color: rgba(26,35,126,0.04); font-weight: bold; pointer-events: none; white-space: nowrap; font-family: sans-serif; }
-  .header { text-align: center; border-bottom: 2px solid #c8a14a; padding-bottom: 8mm; margin-bottom: 8mm; }
+  .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-30deg); font-size: 80px; color: rgba(26,35,126,0.04); font-weight: bold; pointer-events: none; white-space: nowrap; font-family: sans-serif; text-align: center; }
+  .portrait { position: absolute; top: 14mm; right: 18mm; width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #c8a14a; box-shadow: 0 2px 8px rgba(26,35,126,0.15); }
+  .portrait-placeholder { position: absolute; top: 14mm; right: 18mm; width: 80px; height: 80px; border-radius: 50%; background: #e8eaf6; border: 3px solid #c8a14a; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .header { text-align: center; border-bottom: 2px solid #c8a14a; padding-bottom: 8mm; margin-bottom: 8mm; padding-right: 90px; }
   .flag { font-size: 28px; margin-bottom: 3mm; }
   .ministry { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #1a237e; font-family: sans-serif; font-weight: 600; margin-bottom: 2mm; }
   .republic { font-size: 10px; color: #555; font-family: sans-serif; margin-bottom: 3mm; }
@@ -161,10 +171,13 @@ function generateMinistryPDF(cert: Certificate): void {
   .citations li { font-size: 9px; color: #555; padding: 0.5mm 0; }
   .citations li::before { content: "• "; color: #c8a14a; }
   .verify { font-size: 9px; color: #aaa; text-align: center; margin-top: 5mm; font-family: sans-serif; }
+  .vip-badge { display: inline-block; background: #fff8e1; border: 1px solid #f9a825; color: #e65100; font-size: 9px; font-family: sans-serif; font-weight: bold; padding: 1mm 3mm; border-radius: 3px; margin-bottom: 3mm; letter-spacing: 1px; text-transform: uppercase; }
 </style>
 </head>
 <body>
   <div class="page">
+    <div class="watermark">ÉDUCATION CERTIFIÉE RDC</div>
+    ${portraitHtml}
     <div class="header">
       <div class="flag">🇨🇩</div>
       <div class="republic">République Démocratique du Congo</div>
@@ -183,6 +196,7 @@ function generateMinistryPDF(cert: Certificate): void {
       <div class="meta">
         <div class="meta-item"><label>Date d'obtention</label><span>${formatDate(cert.issuedAt)}</span></div>
         <div class="meta-item"><label>Identifiant</label><span>${cert.id.toUpperCase()}</span></div>
+        <div class="meta-item"><label>Vérification</label><span>${cert.qrCodePayload.slice(0, 24)}…</span></div>
         <div class="meta-item"><label>Plateforme</label><span>EDUCERT</span></div>
       </div>
       <div class="verify">Vérification : ${certUrl}</div>
@@ -211,7 +225,8 @@ function generateMinistryPDF(cert: Certificate): void {
 function CertificateCard({
   cert,
   index,
-}: { cert: Certificate; index: number }) {
+  isVip,
+}: { cert: Certificate; index: number; isVip: boolean }) {
   const [citationsOpen, setCitationsOpen] = useState(false);
 
   function handleDownload() {
@@ -249,28 +264,39 @@ function CertificateCard({
               République Démocratique du Congo — EDUCERT
             </p>
           </div>
-          {cert.isMinistryApproved ? (
-            <Badge
-              className="bg-white/20 text-white border-0 text-[10px] shrink-0 gap-1"
-              data-ocid={`certificates.approved_badge.${index}`}
-            >
-              <CheckCircle2 className="size-3" />
-              Approuvé
-            </Badge>
-          ) : (
-            <Badge
-              className="bg-amber-500/30 text-amber-100 border-0 text-[10px] shrink-0 gap-1"
-              data-ocid={`certificates.pending_badge.${index}`}
-            >
-              <Clock className="size-3" />
-              En attente
-            </Badge>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {isVip && (
+              <Badge
+                className="bg-amber-400/25 text-amber-100 border-0 text-[10px] gap-1"
+                data-ocid={`certificates.vip_badge.${index}`}
+              >
+                <Crown className="size-3" />
+                VIP Premium
+              </Badge>
+            )}
+            {cert.isMinistryApproved ? (
+              <Badge
+                className="bg-white/20 text-white border-0 text-[10px] gap-1"
+                data-ocid={`certificates.approved_badge.${index}`}
+              >
+                <CheckCircle2 className="size-3" />
+                Approuvé
+              </Badge>
+            ) : (
+              <Badge
+                className="bg-amber-500/30 text-amber-100 border-0 text-[10px] gap-1"
+                data-ocid={`certificates.pending_badge.${index}`}
+              >
+                <Clock className="size-3" />
+                En attente
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="p-5 flex flex-col gap-4 flex-1">
-        {/* Title section */}
+        {/* Title section with optional portrait */}
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-primary/10 p-3 shrink-0">
             <Award className="size-6 text-primary" />
@@ -286,6 +312,20 @@ function CertificateCard({
               <p className="text-xs text-muted-foreground mt-1">
                 Formateur : {cert.instructor}
               </p>
+            )}
+          </div>
+          {/* Portrait photo */}
+          <div className="shrink-0">
+            {cert.portfolioPhotoUrl ? (
+              <img
+                src={cert.portfolioPhotoUrl}
+                alt="Portrait de l'apprenant"
+                className="size-14 rounded-full object-cover border-2 border-accent/40 shadow-sm"
+              />
+            ) : (
+              <div className="size-14 rounded-full bg-muted/60 border-2 border-border flex items-center justify-center">
+                <User className="size-6 text-muted-foreground" />
+              </div>
             )}
           </div>
         </div>
@@ -327,6 +367,21 @@ function CertificateCard({
           )}
         </div>
 
+        {/* VIP Premium pending notice */}
+        {isVip && !cert.isMinistryApproved && (
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-500/8 border border-amber-400/30 rounded-lg">
+            <Star className="size-4 text-amber-500 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-amber-700">
+                En attente d'approbation Premium
+              </p>
+              <p className="text-[10px] text-amber-600/70">
+                Domaine VIP — validation manuelle par l'administrateur
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Ministry approval banner */}
         {cert.isMinistryApproved ? (
           <div className="flex items-center gap-2 px-3 py-2.5 bg-primary/8 border border-primary/20 rounded-lg">
@@ -342,14 +397,14 @@ function CertificateCard({
               )}
             </div>
           </div>
-        ) : (
+        ) : !isVip ? (
           <div className="flex items-center gap-2 px-3 py-2.5 bg-accent/8 border border-accent/20 rounded-lg">
             <Clock className="size-4 text-accent shrink-0" />
             <p className="text-xs font-semibold text-accent">
               En attente d'approbation ministérielle
             </p>
           </div>
-        )}
+        ) : null}
 
         {/* Collapsible resource citations */}
         {cert.resourceCitations.length > 0 && (
@@ -445,11 +500,23 @@ function CertificatesGrid({
   certs,
   emptyMessage,
   emptyIcon: EmptyIcon,
+  domains,
 }: {
   certs: Certificate[];
   emptyMessage: string;
   emptyIcon: React.ElementType;
+  domains: Domain[];
 }) {
+  const vipDomainNames = domains
+    .filter((d) => d.tier === "vip")
+    .map((d) => d.name.toLowerCase());
+
+  function isVipCert(cert: Certificate): boolean {
+    return vipDomainNames.some((name) =>
+      cert.courseTitle.toLowerCase().includes(name),
+    );
+  }
+
   if (certs.length === 0) {
     return (
       <div
@@ -474,7 +541,12 @@ function CertificatesGrid({
       data-ocid="certificates.list"
     >
       {certs.map((cert, i) => (
-        <CertificateCard key={cert.id} cert={cert} index={i + 1} />
+        <CertificateCard
+          key={cert.id}
+          cert={cert}
+          index={i + 1}
+          isVip={isVipCert(cert)}
+        />
       ))}
     </div>
   );
@@ -518,6 +590,7 @@ function LoadingSkeleton() {
 export default function CertificatesPage() {
   const navigate = useNavigate();
   const { data: certificates, isLoading } = useGetCertificates();
+  const { data: domains = [] } = useListDomains();
 
   const approved = certificates?.filter((c) => c.isMinistryApproved) ?? [];
   const pending = certificates?.filter((c) => !c.isMinistryApproved) ?? [];
@@ -625,6 +698,7 @@ export default function CertificatesPage() {
                 certs={approved}
                 emptyMessage="Aucun certificat approuvé"
                 emptyIcon={Shield}
+                domains={domains}
               />
             </TabsContent>
 
@@ -633,6 +707,7 @@ export default function CertificatesPage() {
                 certs={pending}
                 emptyMessage="Aucun certificat en attente"
                 emptyIcon={Clock}
+                domains={domains}
               />
             </TabsContent>
           </Tabs>

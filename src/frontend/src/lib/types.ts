@@ -10,6 +10,7 @@ export interface UserProfile {
   role: UserRole;
   avatar?: string;
   bio?: string;
+  avatarUrl?: string | null;
 }
 
 export interface Course {
@@ -69,6 +70,7 @@ export interface Certificate {
   qrCodePayload: string;
   isMinistryApproved: boolean;
   approvedAt?: number;
+  portfolioPhotoUrl?: string | null;
 }
 
 export interface QuizResult {
@@ -174,6 +176,19 @@ export interface AIStep {
   output?: string;
 }
 
+export interface GeneratedChapter {
+  number: number;
+  title: string;
+  lessons: string[];
+  videoId?: string;
+}
+
+export interface GeneratedCoursePreview {
+  title: string;
+  description: string;
+  chapters: GeneratedChapter[];
+}
+
 export interface CourseGeneration {
   id: string;
   requestDescription: string;
@@ -186,6 +201,7 @@ export interface CourseGeneration {
   createdAt: number;
   libraryResultsCount?: number;
   aiModelConfig?: AIModelConfig;
+  generatedPreview?: GeneratedCoursePreview;
 }
 
 // ---- Certificate verification ----
@@ -218,7 +234,8 @@ export type AIModelPreset =
   | "gpt4o"
   | "gpt5"
   | "claude_opus"
-  | "claude_sonnet";
+  | "claude_sonnet"
+  | "gemini_flash";
 
 export interface AIModelConfig {
   structureModel: string;
@@ -227,6 +244,15 @@ export interface AIModelConfig {
 }
 
 // ---- World library search ----
+
+export type LibraryApiType =
+  | "open_library"
+  | "gutenberg"
+  | "internet_archive"
+  | "google_books"
+  | "doaj"
+  | "crossref"
+  | "youtube";
 
 export interface LibrarySearchResult {
   id: string;
@@ -238,4 +264,104 @@ export interface LibrarySearchResult {
   url: string;
   previewUrl?: string;
   coverUrl?: string;
+  videoId?: string;
+  sourceType?: string;
+}
+
+// ---- YouTube video result ----
+
+export interface YouTubeVideoResult {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  description: string;
+  thumbnailUrl: string;
+  duration?: string;
+}
+
+// ---- AI Tutor types ----
+
+export type TutorMessageRole = "user" | "assistant";
+
+export interface TutorMessage {
+  id: bigint;
+  courseId: bigint;
+  lessonId: bigint;
+  userId: string; // Principal as string
+  role: TutorMessageRole;
+  content: string;
+  createdAt: bigint;
+}
+
+// ---- Research project types ----
+
+export type ResearchStep =
+  | "sujet"
+  | "problematique"
+  | "hypotheses"
+  | "methodologie"
+  | "plan"
+  | "redaction";
+
+export type ResearchType = "tfc" | "memoire" | "these";
+
+export type ResearchStatus = "draft" | "in_progress" | "completed";
+
+export interface ResearchStepData {
+  step: ResearchStep;
+  content: string;
+  aiResponse: string;
+  validated: boolean;
+  validatedAt: bigint | null;
+  resources: string[];
+}
+
+export interface ResearchProject {
+  id: bigint;
+  userId: string; // Principal as string
+  title: string;
+  researchType?: ResearchType;
+  domain?: string;
+  institution?: string;
+  directorName?: string;
+  steps: [ResearchStep, ResearchStepData][];
+  currentStep: ResearchStep;
+  status: ResearchStatus;
+  createdAt: bigint;
+  updatedAt: bigint;
+  resourceCitations: string[];
+}
+
+// ---- Notification types ----
+
+export type NotificationType =
+  | "inactivity_reminder"
+  | "course_update"
+  | "quiz_ready"
+  | "certificate_issued"
+  | "research_feedback";
+
+export interface AppNotification {
+  id: bigint;
+  userId: string; // Principal as string
+  notificationType: NotificationType;
+  title: string;
+  message: string;
+  courseId: bigint | null;
+  isRead: boolean;
+  createdAt: bigint;
+}
+
+// ---- Domain types ----
+
+export type DomainTier = "standard" | "vip";
+
+export interface Domain {
+  id: bigint;
+  name: string;
+  tier: DomainTier;
+  description: string;
+  requiresManualApproval: boolean;
+  createdAt: bigint;
+  createdBy: string; // Principal as string
 }

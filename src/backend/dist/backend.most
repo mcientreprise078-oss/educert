@@ -1,4 +1,4 @@
-// Version: 3.0.0
+// Version: 1.0.0
 type AIModelConfig__1164069 =
   {contentModel : Text; structureModel : Text; validationModel : Text};
 type AIStep__121948411 =
@@ -21,6 +21,7 @@ type Certificate__592097419 =
     learnerId : UserId__158757552;
     learnerName : Text;
     ministryReviewerName : ?Text;
+    portfolioPhotoUrl : ?Text;
     qrCodePayload : Text;
     resourceCitations : [Text]
   };
@@ -57,6 +58,17 @@ type Course__321233390 =
 type Data__791452850<K, V> =
   {var count : Nat__490723111; kvs : [var ?(K, V)]};
 type Difficulty__35234462 = {#advanced; #beginner; #intermediate};
+type DomainTier__1025801608 = {#standard; #vip};
+type Domain__161385522 =
+  {
+    createdAt : Timestamp__301639476;
+    createdBy : UserId__158757552;
+    description : Text;
+    id : Nat;
+    name : Text;
+    requiresManualApproval : Bool;
+    tier : DomainTier__1025801608
+  };
 type Enrollment__857736828 =
   {
     var completedAt : ?Timestamp__301639476;
@@ -120,57 +132,25 @@ type Nat__490723111 = Nat__920180692;
 type Nat__920180692 = Nat;
 type Node__46230540<K, V> =
   {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
-type OldAIStep__944921147 =
+type NotificationType__908192046 =
   {
-    completedAt : ?OldTimestamp__27916213;
-    model : Text;
-    output : ?Text;
-    step : Nat
+    #certificate_issued;
+    #course_update;
+    #inactivity_reminder;
+    #quiz_ready;
+    #research_feedback
   };
-type OldCourseGeneration__431996126 =
+type Notification__264708741 =
   {
-    createdAt : OldTimestamp__27916213;
-    var errorMessage : ?Text;
-    var generatedCourseId : ?OldCourseId__965914253;
+    courseId : ?CourseId__927523888;
+    createdAt : Timestamp__301639476;
     id : Nat;
-    requestDescription : Text;
-    requestedBy : OldUserId__580276348;
-    resourceIds : [Nat];
-    var status : OldGenerationStatus__320919332;
-    var steps : [OldAIStep__944921147];
-    var updatedAt : OldTimestamp__27916213
-  };
-type OldCourseId__965914253 = Nat;
-type OldGenerationStatus__320919332 =
-  {
-    #approved;
-    #queued;
-    #rejected;
-    #revision_needed;
-    #step1_deepseek;
-    #step2_qwen;
-    #step3_gpt4o
-  };
-type OldResourceStatus__284575106 = {#error; #indexed; #pending};
-type OldResourceType__79733491 =
-  {#excel; #html; #pdf; #video; #weblink; #word; #youtube};
-type OldResource__682541847 =
-  {
-    var description : Text;
-    externalUrl : ?Text;
-    var extractedText : ?Text;
-    fileUrl : ?Text;
-    id : Nat;
-    var keywords : ?[Text];
-    resourceType : OldResourceType__79733491;
-    var status : OldResourceStatus__284575106;
-    var subjects : ?[Text];
+    var isRead : Bool;
+    var message : Text;
+    notificationType : NotificationType__908192046;
     var title : Text;
-    uploadedAt : OldTimestamp__27916213;
-    uploadedBy : OldUserId__580276348
+    userId : UserId__158757552
   };
-type OldTimestamp__27916213 = Int;
-type OldUserId__580276348 = Principal;
 type QuizAttempt__995573549 =
   {
     answers : [Nat];
@@ -189,6 +169,30 @@ type Quiz__409330606 =
     var passingScore : Nat;
     var questions : [QuizQuestion__108518885]
   };
+type ResearchProject__131937320 =
+  {
+    createdAt : Timestamp__301639476;
+    var currentStep : ResearchStep__769579096;
+    id : Nat;
+    var resourceCitations : [Text];
+    var status : ResearchStatus__316121571;
+    var steps : [(ResearchStep__769579096, ResearchStepData__578134876)];
+    var title : Text;
+    var updatedAt : Timestamp__301639476;
+    userId : UserId__158757552
+  };
+type ResearchStatus__316121571 = {#completed; #draft; #in_progress};
+type ResearchStepData__578134876 =
+  {
+    var aiResponse : Text;
+    var content : Text;
+    var resources : [Text];
+    step : ResearchStep__769579096;
+    var validated : Bool;
+    var validatedAt : ?Timestamp__301639476
+  };
+type ResearchStep__769579096 =
+  {#hypotheses; #methodologie; #plan; #problematique; #redaction; #sujet};
 type ResourceStatus__235132859 = {#error; #indexed; #pending};
 type ResourceType__788816361 =
   {
@@ -218,9 +222,21 @@ type Resource__736884683 =
     uploadedBy : UserId__158757552
   };
 type Timestamp__301639476 = Int;
+type TutorMessageRole__440305045 = {#assistant; #user};
+type TutorMessage__835139825 =
+  {
+    content : Text;
+    courseId : CourseId__927523888;
+    createdAt : Timestamp__301639476;
+    id : Nat;
+    lessonId : LessonId__21783266;
+    role : TutorMessageRole__440305045;
+    userId : UserId__158757552
+  };
 type UserId__158757552 = Principal;
 type UserProfile__277265826 =
   {
+    var avatarUrl : ?Text;
     var bio : Text;
     createdAt : Timestamp__301639476;
     id : UserId__158757552;
@@ -229,9 +245,21 @@ type UserProfile__277265826 =
   };
 type UserRole__1073662873 = {#admin; #guest; #user};
 type UserRole__41952412 = {#admin; #instructor; #learner; #ministryReviewer};
-actor ({
+actor {
+  stable GOOGLE_DOCS_API_KEY : Text;
+  stable INACTIVITY_MODEL : Text;
+  stable NOTIF_OPENROUTER_API_KEY : Text;
+  stable NOTIF_OPENROUTER_URL : Text;
   stable OPENROUTER_API_KEY : Text;
   stable OPENROUTER_URL : Text;
+  stable RESEARCH_MODEL : Text;
+  stable RESEARCH_OPENROUTER_API_KEY : Text;
+  stable RESEARCH_OPENROUTER_URL : Text;
+  stable TUTOR_MODEL : Text;
+  stable TUTOR_OPENROUTER_API_KEY : Text;
+  stable TUTOR_OPENROUTER_URL : Text;
+  stable YOUTUBE_API_KEY : Text;
+  stable YOUTUBE_SEARCH_URL : Text;
   stable accessControlState :
     {
       var adminAssigned : Bool;
@@ -249,59 +277,9 @@ actor ({
       var root : Node__46230540<CourseId__927523888, Course__321233390>;
       var size : Nat__490723111
     };
-  stable enrollments :
+  stable domains :
     {
-      var root :
-        Node__46230540<(UserId__158757552, CourseId__927523888),
-                        Enrollment__857736828>;
-      var size : Nat__490723111
-    };
-  stable externalCourses :
-    {
-      var root : Node__46230540<Text, ExternalCourse__305848196>;
-      var size : Nat__490723111
-    };
-  in generations : Map__605269027<Nat, OldCourseGeneration__431996126>;
-  stable lessons :
-    {
-      var root : Node__46230540<LessonId__21783266, Lesson__402185661>;
-      var size : Nat__490723111
-    };
-  stable nextCourseId : {var value : CourseId__927523888};
-  stable nextExternalCourseId : {var value : Nat};
-  stable nextGenerationId : {var value : Nat};
-  stable nextLessonId : {var value : LessonId__21783266};
-  stable nextQuizId : {var value : QuizId__438791917};
-  stable nextResourceId : {var value : Nat};
-  stable quizzes :
-    {
-      var root : Node__46230540<QuizId__438791917, Quiz__409330606>;
-      var size : Nat__490723111
-    };
-  in resources : Map__605269027<Nat, OldResource__682541847>;
-  stable userProfiles :
-    {
-      var root : Node__46230540<UserId__158757552, UserProfile__277265826>;
-      var size : Nat__490723111
-    }
-}, {
-  stable OPENROUTER_API_KEY : Text;
-  stable OPENROUTER_URL : Text;
-  stable accessControlState :
-    {
-      var adminAssigned : Bool;
-      userRoles : Map__605269027<Principal, UserRole__1073662873>
-    };
-  stable adminModelConfig : {var value : AIModelConfig__1164069};
-  stable certificates :
-    {
-      var root :
-        Node__46230540<CertificateId__417577722, Certificate__592097419>;
-      var size : Nat__490723111
-    };
-  stable courses :
-    {
-      var root : Node__46230540<CourseId__927523888, Course__321233390>;
+      var root : Node__46230540<Nat, Domain__161385522>;
       var size : Nat__490723111
     };
   stable enrollments :
@@ -327,14 +305,28 @@ actor ({
       var size : Nat__490723111
     };
   stable nextCourseId : {var value : CourseId__927523888};
+  stable nextDomainId : {var value : Nat};
   stable nextExternalCourseId : {var value : Nat};
   stable nextGenerationId : {var value : Nat};
   stable nextLessonId : {var value : LessonId__21783266};
+  stable nextNotifId : {var value : Nat};
   stable nextQuizId : {var value : QuizId__438791917};
+  stable nextResearchId : {var value : Nat};
   stable nextResourceId : {var value : Nat};
+  stable nextTutorMessageId : {var value : Nat};
+  stable notifications :
+    {
+      var root : Node__46230540<Nat, Notification__264708741>;
+      var size : Nat__490723111
+    };
   stable quizzes :
     {
       var root : Node__46230540<QuizId__438791917, Quiz__409330606>;
+      var size : Nat__490723111
+    };
+  stable researchProjects :
+    {
+      var root : Node__46230540<Nat, ResearchProject__131937320>;
       var size : Nat__490723111
     };
   stable resources :
@@ -342,9 +334,15 @@ actor ({
       var root : Node__46230540<Nat, Resource__736884683>;
       var size : Nat__490723111
     };
+  stable tutorMessages :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?TutorMessage__835139825]];
+      var elementIndex : Nat__490723111
+    };
   stable userProfiles :
     {
       var root : Node__46230540<UserId__158757552, UserProfile__277265826>;
       var size : Nat__490723111
     }
-}) ;
+};

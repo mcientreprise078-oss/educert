@@ -8,6 +8,7 @@ module {
     var name : Text;
     var bio : Text;
     var role : UserRole;
+    var avatarUrl : ?Text;
     createdAt : Common.Timestamp;
   };
 
@@ -17,6 +18,7 @@ module {
     name : Text;
     bio : Text;
     role : UserRole;
+    avatarUrl : ?Text;
     createdAt : Common.Timestamp;
   };
 };

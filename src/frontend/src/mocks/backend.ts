@@ -1,5 +1,28 @@
-import type { backendInterface, CoursePublic, LessonPublic, EnrollmentPublic, Certificate, UserProfilePublic, QuizPublic, QuizResult, ResourcePublic, CourseGenerationPublic } from "../backend";
-import { Difficulty, LessonType, UserRole, UserRole__1, ResourceStatus, ResourceType, GenerationStatus } from "../backend";
+import { 
+  Difficulty,
+  DomainTier,
+  GenerationStatus,
+  LessonType,
+  ResearchStatus,
+  ResearchStep,
+  ResourceStatus,
+  ResourceType,
+  TutorMessageRole,
+  UserRole,
+  UserRole__1,
+ } from "../backend";
+import type { 
+  Certificate,
+  CourseGenerationPublic,
+  CoursePublic,
+  EnrollmentPublic,
+  LessonPublic,
+  QuizPublic,
+  QuizResult,
+  ResourcePublic,
+  UserProfilePublic,
+  backendInterface,
+ } from "../backend";
 import type { Principal } from "@icp-sdk/core/principal";
 
 const now = BigInt(Date.now()) * BigInt(1_000_000);
@@ -483,5 +506,30 @@ export const mockBackend: backendInterface = {
   _immutableObjectStorageCreateCertificate: async () => ({ ok: "" }) as never,
   _immutableObjectStorageRefillCashier: async () => ({ ok: null }) as never,
   _immutableObjectStorageUpdateGatewayPrincipals: async () => undefined,
+  askTutor: async () => ({ __kind__: "ok" as const, ok: { id: BigInt(1), courseId: BigInt(1), lessonId: BigInt(1), userId: { toText: () => "user" } as unknown as Principal, role: TutorMessageRole.assistant, content: "Réponse du tuteur IA.", createdAt: now } }),
+  clearMyNotifications: async () => ({ __kind__: "ok" as const, ok: null }),
+  clearTutorHistory: async () => ({ __kind__: "ok" as const, ok: null }),
+  createDomain: async (name, tier, description, requiresManualApproval) => ({ __kind__: "ok" as const, ok: { id: BigInt(1), name, tier, description, requiresManualApproval, createdAt: now, createdBy: { toText: () => "admin" } as unknown as Principal } }),
+  createResearchProject: async () => ({ __kind__: "ok" as const, ok: { id: BigInt(1), status: ResearchStatus.draft, title: "Projet", userId: { toText: () => "user" } as unknown as Principal, createdAt: now, resourceCitations: [], updatedAt: now, steps: [], currentStep: ResearchStep.sujet } }),
+  deleteDomain: async () => ({ __kind__: "ok" as const, ok: null }),
+  generateCertificate: async () => ({ id: "", courseId: BigInt(0), learnerId: { toText: () => "user" } as unknown as Principal, learnerName: "", courseTitle: "", issuedAt: now, isMinistryApproved: false, resourceCitations: [], qrCodePayload: "", portfolioPhotoUrl: undefined, instructorName: "" }),
+  generateChapterQuiz: async () => ({ __kind__: "ok" as const, ok: JSON.stringify({ questions: [], passingScore: 70 }) }),
+  generateInactivityNotifications: async () => ({ __kind__: "ok" as const, ok: BigInt(0) }),
+  getMyNotifications: async () => [],
+  listDomains: async () => [],
+  listMyResearchProjects: async () => [],
+  markAllNotificationsRead: async () => ({ __kind__: "ok" as const, ok: null }),
+  markNotificationRead: async () => ({ __kind__: "ok" as const, ok: null }),
+  queryTutorHistory: async () => [],
+  getResearchProject: async () => ({ __kind__: "ok" as const, ok: { id: BigInt(1), status: ResearchStatus.draft, title: "", userId: { toText: () => "user" } as unknown as Principal, createdAt: now, resourceCitations: [], updatedAt: now, steps: [], currentStep: ResearchStep.sujet } }),
+  searchRealLibraries: async () => [],
+  sendResearchMessage: async () => ({ __kind__: "ok" as const, ok: "" }),
+  transformNotifHttpResponse: async () => ({ status: BigInt(0), body: new Uint8Array(), headers: [] }),
+  transformResearchHttpResponse: async () => ({ status: BigInt(0), body: new Uint8Array(), headers: [] }),
+  transformTutorHttpResponse: async () => ({ status: BigInt(0), body: new Uint8Array(), headers: [] }),
+  updateDomain: async (id, tier, requiresManualApproval) => ({ __kind__: "ok" as const, ok: { id, tier, requiresManualApproval, name: "", description: "", createdAt: now, createdBy: { toText: () => "admin" } as unknown as Principal } }),
+  validateResearchStep: async () => ({ __kind__: "ok" as const, ok: { id: BigInt(1), status: ResearchStatus.in_progress, title: "", userId: { toText: () => "user" } as unknown as Principal, createdAt: now, resourceCitations: [], updatedAt: now, steps: [], currentStep: ResearchStep.sujet } }),
   _initializeAccessControl: async () => undefined,
+  importGoogleDocResource: async () => ({ __kind__: "ok" as const, ok: BigInt(99) }),
+  transformResourcesHttpResponse: async () => ({ status: BigInt(0), body: new Uint8Array(), headers: [] }),
 };

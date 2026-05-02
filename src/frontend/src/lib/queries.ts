@@ -1,15 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SAMPLE_COURSES } from "./constants";
 import type {
   AIModelConfig,
-  AIStep,
+  AppNotification,
   Certificate,
   CertificateVerification,
   Course,
   CourseFilters,
   CourseGeneration,
   CourseInput,
-  Difficulty,
+  Domain,
+  DomainTier,
   Enrollment,
   ExternalCourse,
   GenerationStatus,
@@ -18,157 +18,21 @@ import type {
   LibrarySearchResult,
   Quiz,
   QuizResult,
+  ResearchProject,
+  ResearchType,
   Resource,
   ResourceType,
+  TutorMessage,
   UserProfile,
   UserRole,
+  YouTubeVideoResult,
 } from "./types";
 
-// -- Simulated data store (bridges to backend when ready) --
-let mockEnrollments: Enrollment[] = [
-  {
-    id: "e1",
-    courseId: "1",
-    learnerId: "user1",
-    progress: 65,
-    completedLessons: ["l1", "l2", "l3"],
-    enrolledAt: Date.now() - 86400000 * 7,
-  },
-  {
-    id: "e2",
-    courseId: "3",
-    learnerId: "user1",
-    progress: 30,
-    completedLessons: ["l1"],
-    enrolledAt: Date.now() - 86400000 * 3,
-  },
-];
-
-let mockCourses: Course[] = SAMPLE_COURSES as unknown as Course[];
-
-const mockLessonsMap: Record<string, Lesson[]> = {
-  "1": [
-    {
-      id: "l1",
-      courseId: "1",
-      title: "Introduction & Objectifs",
-      description: "Vue d'ensemble du cours",
-      duration: 900,
-      order: 1,
-      content:
-        "Bienvenue dans ce cours de gestion de projets avancée. Nous allons explorer...",
-      published: true,
-    },
-    {
-      id: "l2",
-      courseId: "1",
-      title: "Planification Stratégique",
-      description: "Techniques de planification",
-      duration: 1800,
-      order: 2,
-      content: "La planification stratégique est essentielle pour...",
-      published: true,
-    },
-    {
-      id: "l3",
-      courseId: "1",
-      title: "Gestion des Risques",
-      description: "Identification et mitigation",
-      duration: 2400,
-      order: 3,
-      videoUrl: "https://example.com/video1",
-      published: true,
-    },
-    {
-      id: "l4",
-      courseId: "1",
-      title: "Leadership d'Équipe",
-      description: "Motiver et coordonner",
-      duration: 1500,
-      order: 4,
-      content: "Diriger une équipe multidisciplinaire nécessite...",
-      published: true,
-    },
-  ],
-  "2": [
-    {
-      id: "l5",
-      courseId: "2",
-      title: "Introduction à la Data Science",
-      description: "Concepts fondamentaux",
-      duration: 1200,
-      order: 1,
-      content: "La science des données est une discipline qui...",
-      published: true,
-    },
-    {
-      id: "l6",
-      courseId: "2",
-      title: "Python pour Data Scientists",
-      description: "Bases de Python",
-      duration: 3600,
-      order: 2,
-      content: "Python est le langage de référence pour...",
-      published: true,
-    },
-  ],
-  "3": [
-    {
-      id: "l7",
-      courseId: "3",
-      title: "Définir son Leadership",
-      description: "Styles et approches",
-      duration: 1800,
-      order: 1,
-      content:
-        "Le leadership authentique commence par une profonde connaissance de soi...",
-      published: true,
-    },
-    {
-      id: "l8",
-      courseId: "3",
-      title: "Intelligence Émotionnelle",
-      description: "Les 5 composantes",
-      duration: 2100,
-      order: 2,
-      videoUrl: "https://example.com/video3",
-      published: true,
-    },
-  ],
-};
-
-const mockQuizzesMap: Record<string, Quiz> = {
-  l1: {
-    lessonId: "l1",
-    questions: [
-      {
-        id: "q1",
-        text: "Quelle est la première étape d'un projet?",
-        options: ["Exécution", "Planification", "Clôture", "Contrôle"],
-        correctIndex: 1,
-      },
-    ],
-    passingScore: 70,
-  },
-  l2: {
-    lessonId: "l2",
-    questions: [
-      {
-        id: "q2",
-        text: "WBS signifie?",
-        options: [
-          "Work Breakdown Structure",
-          "Work Budget Schedule",
-          "Workflow Business System",
-          "Work Based Strategy",
-        ],
-        correctIndex: 0,
-      },
-    ],
-    passingScore: 80,
-  },
-};
-
+// -- In-memory stores (no mock courses or sample data) --
+let mockEnrollments: Enrollment[] = [];
+let mockCourses: Course[] = [];
+const mockLessonsMap: Record<string, Lesson[]> = {};
+const mockQuizzesMap: Record<string, Quiz> = {};
 const mockCourseEnrollments: Record<
   string,
   Array<{
@@ -178,228 +42,10 @@ const mockCourseEnrollments: Record<
     completedLessons: number;
     enrolledAt: number;
   }>
-> = {
-  "1": [
-    {
-      learnerId: "u1",
-      learnerName: "Sophie Martin",
-      progress: 85,
-      completedLessons: 20,
-      enrolledAt: Date.now() - 86400000 * 30,
-    },
-    {
-      learnerId: "u2",
-      learnerName: "Thomas Dubois",
-      progress: 45,
-      completedLessons: 10,
-      enrolledAt: Date.now() - 86400000 * 15,
-    },
-    {
-      learnerId: "u3",
-      learnerName: "Clara Bernard",
-      progress: 100,
-      completedLessons: 24,
-      enrolledAt: Date.now() - 86400000 * 60,
-    },
-    {
-      learnerId: "u4",
-      learnerName: "Lucas Petit",
-      progress: 20,
-      completedLessons: 4,
-      enrolledAt: Date.now() - 86400000 * 5,
-    },
-    {
-      learnerId: "u5",
-      learnerName: "Emma Robert",
-      progress: 65,
-      completedLessons: 15,
-      enrolledAt: Date.now() - 86400000 * 22,
-    },
-  ],
-  "2": [
-    {
-      learnerId: "u6",
-      learnerName: "Pierre Dupont",
-      progress: 30,
-      completedLessons: 9,
-      enrolledAt: Date.now() - 86400000 * 10,
-    },
-    {
-      learnerId: "u7",
-      learnerName: "Julie Moreau",
-      progress: 75,
-      completedLessons: 24,
-      enrolledAt: Date.now() - 86400000 * 40,
-    },
-  ],
-  "3": [
-    {
-      learnerId: "u8",
-      learnerName: "Antoine Lefebvre",
-      progress: 55,
-      completedLessons: 10,
-      enrolledAt: Date.now() - 86400000 * 18,
-    },
-    {
-      learnerId: "u9",
-      learnerName: "Marie Simon",
-      progress: 90,
-      completedLessons: 16,
-      enrolledAt: Date.now() - 86400000 * 50,
-    },
-    {
-      learnerId: "u10",
-      learnerName: "Nicolas Garcia",
-      progress: 10,
-      completedLessons: 2,
-      enrolledAt: Date.now() - 86400000 * 3,
-    },
-  ],
-};
-
-// ---- Mock resources ----
-let mockResources: Resource[] = [
-  {
-    id: "r1",
-    title: "Manuel de Gestion des Projets — RDC",
-    description:
-      "Guide officiel du Ministère de la Formation Professionnelle pour la gestion de projets de développement.",
-    resourceType: "pdf",
-    status: "indexed",
-    fileUrl: "/assets/docs/gestion-projets.pdf",
-    keywords: ["gestion", "projet", "planification", "RDC"],
-    subjects: ["Gestion de Projets", "Management"],
-    uploadedAt: Date.now() - 86400000 * 45,
-  },
-  {
-    id: "r2",
-    title: "Introduction à la Data Science — Université de Kinshasa",
-    description:
-      "Cours universitaire couvrant Python, statistiques et machine learning pour les professionnels.",
-    resourceType: "word",
-    status: "indexed",
-    fileUrl: "/assets/docs/data-science-unikin.docx",
-    keywords: ["data science", "python", "machine learning", "statistiques"],
-    subjects: ["Informatique", "Data Science"],
-    uploadedAt: Date.now() - 86400000 * 30,
-  },
-  {
-    id: "r3",
-    title: "Leadership & Management en Afrique — Conférence 2024",
-    description:
-      "Actes de la conférence régionale sur les pratiques managériales adaptées au contexte africain.",
-    resourceType: "pdf",
-    status: "indexed",
-    fileUrl: "/assets/docs/leadership-afrique.pdf",
-    keywords: ["leadership", "management", "Afrique", "organisation"],
-    subjects: ["Leadership", "Ressources Humaines"],
-    uploadedAt: Date.now() - 86400000 * 20,
-  },
-  {
-    id: "r4",
-    title: "Chaîne YouTube — Formations Professionnelles RDC",
-    description:
-      "Vidéos officielles de formation technique et professionnelle du Ministère.",
-    resourceType: "youtube",
-    status: "indexed",
-    externalUrl: "https://youtube.com/@formationrdc",
-    keywords: ["formation", "technique", "vidéo", "professionnel"],
-    subjects: ["Formation Professionnelle"],
-    uploadedAt: Date.now() - 86400000 * 15,
-  },
-  {
-    id: "r5",
-    title: "Portail des Ressources Éducatives — MENFOP",
-    description:
-      "Ressources pédagogiques officielles du Ministère de l'Enseignement National.",
-    resourceType: "weblink",
-    status: "pending",
-    externalUrl: "https://menfop.gouv.cd/ressources",
-    keywords: ["éducation", "pédagogie", "national"],
-    subjects: ["Éducation Nationale"],
-    uploadedAt: Date.now() - 86400000 * 5,
-  },
-];
-
-// ---- Mock generations ----
-let mockGenerations: CourseGeneration[] = [
-  {
-    id: "gen1",
-    requestDescription:
-      "Formation complète en comptabilité générale pour les PME congolaises, incluant la TVA et les normes OHADA",
-    requestedBy: "user1",
-    status: "approved",
-    steps: [
-      {
-        step: 1,
-        model: "deepseek",
-        completedAt: Date.now() - 86400000 * 3 - 3600000,
-        output: "Structure pédagogique générée",
-      },
-      {
-        step: 2,
-        model: "qwen",
-        completedAt: Date.now() - 86400000 * 3 - 1800000,
-        output: "Contenu en français généré",
-      },
-      {
-        step: 3,
-        model: "gpt4o",
-        completedAt: Date.now() - 86400000 * 3,
-        output: "Cours validé et approuvé",
-      },
-    ] as AIStep[],
-    resourceIds: ["r1", "r2"],
-    generatedCourseId: "1",
-    createdAt: Date.now() - 86400000 * 4,
-    libraryResultsCount: 47,
-    aiModelConfig: {
-      structureModel: "DeepSeek R1",
-      contentModel: "Qwen 72B",
-      validationModel: "GPT-4o",
-    },
-  },
-  {
-    id: "gen2",
-    requestDescription:
-      "Cours sur les technologies agricoles modernes adaptées aux régions tropicales de la RDC",
-    requestedBy: "user2",
-    status: "step2_qwen",
-    steps: [
-      {
-        step: 1,
-        model: "deepseek",
-        completedAt: Date.now() - 7200000,
-        output: "Structure pédagogique générée",
-      },
-      { step: 2, model: "qwen", output: "En cours..." },
-    ] as AIStep[],
-    resourceIds: ["r3", "r4"],
-    createdAt: Date.now() - 86400000,
-    libraryResultsCount: 23,
-    aiModelConfig: {
-      structureModel: "DeepSeek R1",
-      contentModel: "Qwen 72B",
-      validationModel: "GPT-4o",
-    },
-  },
-  {
-    id: "gen3",
-    requestDescription:
-      "Formation en entrepreneuriat numérique pour les jeunes de 18-30 ans en RDC",
-    requestedBy: "user3",
-    status: "queued",
-    steps: [],
-    resourceIds: ["r1"],
-    createdAt: Date.now() - 3600000,
-    libraryResultsCount: 0,
-    aiModelConfig: {
-      structureModel: "DeepSeek R1",
-      contentModel: "Qwen 72B",
-      validationModel: "GPT-4o",
-    },
-  },
-];
+> = {};
+let mockResources: Resource[] = [];
+let mockGenerations: CourseGeneration[] = [];
+let mockExternalCourses: ExternalCourse[] = [];
 
 // ---- Learner queries ----
 
@@ -484,47 +130,7 @@ export function useEnroll() {
 export function useGetCertificates() {
   return useQuery<Certificate[]>({
     queryKey: ["certificates"],
-    queryFn: async () => {
-      await new Promise((r) => setTimeout(r, 200));
-      const completed = mockEnrollments.filter((e) => e.completedAt != null);
-      const fromCompleted: Certificate[] = completed.map((e) => {
-        const course = SAMPLE_COURSES.find((c) => c.id === e.courseId);
-        return {
-          id: `cert-${e.id}`,
-          courseId: e.courseId,
-          courseTitle:
-            (course as unknown as { title?: string })?.title ??
-            "Formation inconnue",
-          instructor:
-            (course as unknown as { instructor?: string })?.instructor ?? "",
-          learnerId: "user1",
-          learnerName: "Alexandre Martin",
-          issuedAt: e.completedAt ?? Date.now(),
-          resourceCitations: [],
-          qrCodePayload: `EDUCERT-${e.id}-${Date.now()}`,
-          isMinistryApproved: false,
-        };
-      });
-      const sample: Certificate = {
-        id: "cert1",
-        courseId: "1",
-        courseTitle: "Gestion Avancée de Projets",
-        instructor: "Dr. Amina Benali",
-        learnerId: "user1",
-        learnerName: "Alexandre Martin",
-        issuedAt: Date.now() - 86400000 * 30,
-        ministryReviewerName: "M. Jean-Baptiste Kabila",
-        resourceCitations: [
-          "Manuel de Gestion des Projets — RDC (2023)",
-          "Introduction à la Data Science — Université de Kinshasa",
-        ],
-        qrCodePayload: "EDUCERT-cert1-VERIFIED-2024",
-        isMinistryApproved: true,
-        approvedAt: Date.now() - 86400000 * 28,
-      };
-      const all = [sample, ...fromCompleted.filter((c) => c.id !== "cert1")];
-      return all;
-    },
+    queryFn: async () => [],
   });
 }
 
@@ -565,7 +171,7 @@ export function useGetInstructorCourses() {
     queryKey: ["instructorCourses"],
     queryFn: async () => {
       await new Promise((r) => setTimeout(r, 200));
-      return mockCourses.slice(0, 3);
+      return mockCourses;
     },
   });
 }
@@ -950,16 +556,54 @@ export function useIndexResourceText() {
   });
 }
 
+// ---- Admin: Import Google Doc resource ----
+
+export function useImportGoogleDoc() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      docUrl: string;
+      title: string;
+      userId: string;
+    }): Promise<{ ok: string } | { err: string }> => {
+      await new Promise((r) => setTimeout(r, 1000));
+      const resource: Resource = {
+        id: `r${Date.now()}`,
+        title: params.title,
+        description: `Importé depuis Google Docs : ${params.docUrl}`,
+        resourceType: "html",
+        status: "indexed",
+        externalUrl: params.docUrl,
+        keywords: [],
+        subjects: [],
+        uploadedAt: Date.now(),
+      };
+      mockResources = [resource, ...mockResources];
+      return { ok: resource.id };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["resources"] });
+    },
+  });
+}
+
 // ---- AI Generation queries ----
 
 export function useRequestGeneration() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (description: string) => {
+    mutationFn: async (params: {
+      description: string;
+      title?: string;
+      domain?: string;
+      chapterCount?: number;
+      sources?: string[];
+      modelPreset?: string;
+    }) => {
       await new Promise((r) => setTimeout(r, 600));
       const gen: CourseGeneration = {
         id: `gen${Date.now()}`,
-        requestDescription: description,
+        requestDescription: params.description,
         requestedBy: "user1",
         status: "queued",
         steps: [],
@@ -968,10 +612,12 @@ export function useRequestGeneration() {
           .slice(0, 5)
           .map((r) => r.id),
         createdAt: Date.now(),
-        libraryResultsCount: Math.floor(Math.random() * 80) + 15,
+        libraryResultsCount: 0,
         aiModelConfig: { ...mockModelConfig },
       };
       mockGenerations = [gen, ...mockGenerations];
+      // Simulate pipeline progression
+      simulatePipeline(gen.id);
       return gen;
     },
     onSuccess: () => {
@@ -979,6 +625,69 @@ export function useRequestGeneration() {
       queryClient.invalidateQueries({ queryKey: ["myGenerations"] });
     },
   });
+}
+
+// Simulate the 3-step AI pipeline in memory
+function simulatePipeline(genId: string) {
+  const steps: GenerationStatus[] = [
+    "step1_deepseek",
+    "step2_qwen",
+    "step3_gpt4o",
+    "approved",
+  ];
+  let delay = 2000;
+  for (const status of steps) {
+    const d = delay;
+    setTimeout(() => {
+      mockGenerations = mockGenerations.map((g) => {
+        if (g.id !== genId) return g;
+        if (status === "approved") {
+          return {
+            ...g,
+            status,
+            generatedPreview: {
+              title: g.requestDescription.slice(0, 60),
+              description:
+                "Formation complète générée par IA à partir des ressources disponibles et des bibliothèques mondiales. Ce cours couvre les fondamentaux et les applications pratiques du domaine.",
+              chapters: [
+                {
+                  number: 1,
+                  title: "Introduction et Fondements Théoriques",
+                  lessons: [
+                    "Présentation du domaine et historique",
+                    "Concepts clés et terminologie de base",
+                    "Cadre réglementaire et normes applicables",
+                  ],
+                  videoId: "dQw4w9WgXcQ",
+                },
+                {
+                  number: 2,
+                  title: "Méthodologie et Approches Pratiques",
+                  lessons: [
+                    "Les différentes méthodes et leur application",
+                    "Outils et technologies utilisés",
+                    "Cas pratiques et études de terrain",
+                  ],
+                },
+                {
+                  number: 3,
+                  title: "Applications Avancées et Projets",
+                  lessons: [
+                    "Projets professionnels types",
+                    "Gestion des défis courants",
+                    "Perspectives et évolutions du secteur",
+                  ],
+                  videoId: "YQHsXMglC9A",
+                },
+              ],
+            },
+          };
+        }
+        return { ...g, status };
+      });
+    }, d);
+    delay += 3000;
+  }
 }
 
 const TERMINAL_STATUSES: GenerationStatus[] = [
@@ -998,7 +707,7 @@ export function useGetGenerationStatus(id: string) {
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return 3000;
-      return TERMINAL_STATUSES.includes(data.status) ? false : 3000;
+      return TERMINAL_STATUSES.includes(data.status) ? false : 2000;
     },
   });
 }
@@ -1008,8 +717,9 @@ export function useListMyGenerations() {
     queryKey: ["myGenerations"],
     queryFn: async () => {
       await new Promise((r) => setTimeout(r, 300));
-      return mockGenerations.filter((g) => g.requestedBy === "user1");
+      return mockGenerations;
     },
+    refetchInterval: 3000,
   });
 }
 
@@ -1081,29 +791,6 @@ export function useVerifyCertificateQR(payload: string) {
     queryKey: ["verifyCertificate", payload],
     queryFn: async () => {
       await new Promise((r) => setTimeout(r, 500));
-      // Mock: check if payload matches any known certificate
-      if (payload === "EDUCERT-cert1-VERIFIED-2024") {
-        return {
-          isValid: true,
-          certificate: {
-            id: "cert1",
-            courseId: "1",
-            courseTitle: "Gestion Avancée de Projets",
-            instructor: "Dr. Amina Benali",
-            learnerId: "user1",
-            learnerName: "Alexandre Martin",
-            issuedAt: Date.now() - 86400000 * 30,
-            ministryReviewerName: "M. Jean-Baptiste Kabila",
-            resourceCitations: [
-              "Manuel de Gestion des Projets — RDC (2023)",
-              "Introduction à la Data Science — Université de Kinshasa",
-            ],
-            qrCodePayload: "EDUCERT-cert1-VERIFIED-2024",
-            isMinistryApproved: true,
-            approvedAt: Date.now() - 86400000 * 28,
-          },
-        };
-      }
       return {
         isValid: false,
         errorMessage: "Certificat introuvable ou non valide.",
@@ -1114,43 +801,6 @@ export function useVerifyCertificateQR(payload: string) {
 }
 
 // ---- External courses ----
-
-let mockExternalCourses: ExternalCourse[] = [
-  {
-    id: "ec1",
-    url: "https://www.youtube.com/watch?v=rfscVS0vtbw",
-    title: "Python Full Course for Beginners — freeCodeCamp",
-    description:
-      "Cours complet Python en anglais, idéal pour les débutants en programmation.",
-    platform: "YouTube",
-    thumbnailUrl: "https://img.youtube.com/vi/rfscVS0vtbw/hqdefault.jpg",
-    addedBy: "admin",
-    addedAt: BigInt(Date.now() - 86400000 * 10),
-    viewCount: BigInt(42),
-  },
-  {
-    id: "ec2",
-    url: "https://www.coursera.org/learn/machine-learning",
-    title: "Machine Learning — Andrew Ng (Stanford/Coursera)",
-    description:
-      "Le cours de référence mondiale en Machine Learning, adapté aux professionnels RDC.",
-    platform: "Coursera",
-    addedBy: "admin",
-    addedAt: BigInt(Date.now() - 86400000 * 5),
-    viewCount: BigInt(18),
-  },
-  {
-    id: "ec3",
-    url: "https://www.udemy.com/course/the-complete-web-developer-zero-to-mastery",
-    title: "Complete Web Developer — Zero to Mastery",
-    description:
-      "Formation complète développeur web, de débutant à professionnel.",
-    platform: "Udemy",
-    addedBy: "admin",
-    addedAt: BigInt(Date.now() - 86400000 * 2),
-    viewCount: BigInt(7),
-  },
-];
 
 function detectPlatform(url: string): string {
   if (url.includes("youtube.com") || url.includes("youtu.be")) return "YouTube";
@@ -1239,7 +889,7 @@ export function useTrackExternalCourseView() {
 
 // ---- AI Model configuration ----
 
-let mockModelConfig: AIModelConfig = {
+let mockModelConfig: import("./types").AIModelConfig = {
   structureModel: "DeepSeek R1",
   contentModel: "Qwen 72B",
   validationModel: "GPT-4o",
@@ -1275,226 +925,616 @@ export function useSetAdminModelConfig() {
 export interface LibrarySearchQuery {
   query: string;
   domain?: string;
+  sources?: LibraryApiType[];
 }
 
-const MOCK_LIBRARY_DB: LibrarySearchResult[] = [
-  {
-    id: "lib1",
-    title: "Principes de Comptabilité Générale — Normes OHADA",
-    author: "Jean-Pierre Deschamps",
-    year: "2022",
-    source: "Bibliothèque Ouverte",
-    description:
-      "Manuel complet de comptabilité générale pour entreprises selon les normes OHADA et le droit des affaires africain.",
-    url: "https://openlibrary.org/books/OL1234567M",
-    coverUrl: "https://covers.openlibrary.org/b/id/12345-M.jpg",
-  },
-  {
-    id: "lib2",
-    title: "Gestion Financière des PME en Afrique",
-    author: "Amina Diallo",
-    year: "2021",
-    source: "Bibliothèque Ouverte",
-    description:
-      "Stratégies financières adaptées aux petites et moyennes entreprises africaines et congolaises.",
-    url: "https://openlibrary.org/books/OL2345678M",
-  },
-  {
-    id: "lib3",
-    title: "The Art of Business Management",
-    author: "Peter Drucker",
-    year: "1954",
-    source: "Projet Gutenberg",
-    description:
-      "Fondements du management moderne et de la gestion d'entreprise — traduit en français.",
-    url: "https://gutenberg.org/ebooks/12345",
-  },
-  {
-    id: "lib4",
-    title: "Entrepreneuriat et Innovation en Afrique Subsaharienne",
-    author: "Kwame Mensah",
-    year: "2023",
-    source: "Archives Internet",
-    description:
-      "Étude des modèles d'innovation adaptés au contexte économique africain et aux startups congolaises.",
-    url: "https://archive.org/details/entrepreneuriat-afrique",
-  },
-  {
-    id: "lib5",
-    title: "Leadership Transformationnel",
-    author: "James M. Burns",
-    year: "1978",
-    source: "Google Livres",
-    description:
-      "Théorie fondatrice du leadership transformationnel et son application organisationnelle moderne.",
-    url: "https://books.google.com/books?id=ABC123",
-  },
-  {
-    id: "lib6",
-    title: "Droit Commercial et des Affaires en RDC",
-    author: "Prof. Luc Ngalula",
-    year: "2020",
-    source: "Bibliothèque Ouverte",
-    description:
-      "Cadre juridique complet des affaires en République Démocratique du Congo.",
-    url: "https://openlibrary.org/books/OL3456789M",
-  },
-  {
-    id: "lib7",
-    title: "Systèmes d'Information de Gestion",
-    author: "Laudon & Laudon",
-    year: "2019",
-    source: "Google Livres",
-    description:
-      "Management des technologies de l'information pour les organisations modernes.",
-    url: "https://books.google.com/books?id=DEF456",
-  },
-  {
-    id: "lib8",
-    title: "Économie du Développement en Afrique",
-    author: "Daron Acemoglu",
-    year: "2012",
-    source: "Archives Internet",
-    description:
-      "Analyse économique du développement et des institutions dans les pays émergents d'Afrique.",
-    url: "https://archive.org/details/economie-developpement",
-  },
-  {
-    id: "lib9",
-    title: "Introduction au Marketing Digital",
-    author: "Philippe Kotler",
-    year: "2022",
-    source: "Projet Gutenberg",
-    description:
-      "Stratégies marketing numériques pour les marchés émergents et entrepreneurs africains.",
-    url: "https://gutenberg.org/ebooks/23456",
-  },
-  {
-    id: "lib10",
-    title: "Normes OHADA — Guide Pratique Officiel",
-    author: "OHADA Commission",
-    year: "2023",
-    source: "Bibliothèque Ouverte",
-    description:
-      "Guide officiel des normes comptables et juridiques de l'Organisation pour l'Harmonisation en Afrique du Droit des Affaires.",
-    url: "https://openlibrary.org/books/OL4567890M",
-  },
-  {
-    id: "lib11",
-    title: "Agriculture Tropicale Durable",
-    author: "Henri Vallin",
-    year: "2021",
-    source: "Archives Internet",
-    description:
-      "Techniques agricoles adaptées aux zones tropicales d'Afrique centrale et de la RDC.",
-    url: "https://archive.org/details/agriculture-tropicale",
-  },
-  {
-    id: "lib12",
-    title: "Data Science avec Python — Cours Pratique",
-    author: "Jake VanderPlas",
-    year: "2023",
-    source: "Google Livres",
-    description:
-      "Guide complet de la science des données avec Python, pandas, numpy et scikit-learn.",
-    url: "https://books.google.com/books?id=GHI789",
-  },
-  {
-    id: "lib13",
-    title: "Principes fondamentaux de l'ingénierie logicielle",
-    author: "Pressman, Roger S.",
-    year: "2019",
-    source: "Bibliothèque Ouverte",
-    description:
-      "Référence mondiale pour l'ingénierie logicielle, couvrant méthodes agiles, architecture et qualité.",
-    url: "https://openlibrary.org/works/OL7681497W",
-    coverUrl: "https://covers.openlibrary.org/b/id/8091016-M.jpg",
-  },
-  {
-    id: "lib14",
-    title: "Droit des affaires OHADA — Guide pratique",
-    author: "Issa-Sayegh, Joseph",
-    year: "2020",
-    source: "Bibliothèque Ouverte",
-    description:
-      "Guide complet sur le droit des affaires harmonisé en Afrique, incluant la RDC.",
-    url: "https://ohada.com/bibliotheque",
-  },
-  {
-    id: "lib15",
-    title: "Soins de Santé Primaires en Milieu Rural Africain",
-    author: "Dr. Kabuya Ngandu",
-    year: "2022",
-    source: "Archives Internet",
-    description:
-      "Manuel de médecine générale et de soins primaires adapté aux contraintes du terrain africain.",
-    url: "https://archive.org/details/soins-sante-afrique",
-  },
-  {
-    id: "lib16",
-    title: "Génie Civil et Construction en Zone Tropicale",
-    author: "Mbala Kiese",
-    year: "2021",
-    source: "Bibliothèque Ouverte",
-    description:
-      "Techniques de construction, calculs de structures et matériaux adaptés au climat tropical congolais.",
-    url: "https://openlibrary.org/books/OL5678901M",
-  },
-  {
-    id: "lib17",
-    title: "Rédaction de Mémoires et TFC selon les Normes RDC",
-    author: "Prof. Nsimba Makonda",
-    year: "2023",
-    source: "Google Livres",
-    description:
-      "Guide méthodologique complet pour la rédaction de travaux de fin de cycle conformes aux exigences universitaires de la RDC.",
-    url: "https://books.google.com/books?id=JKL012",
-  },
-  {
-    id: "lib18",
-    title: "Ressources Humaines et Droit du Travail en RDC",
-    author: "Me Kasereka Vira",
-    year: "2022",
-    source: "Projet Gutenberg",
-    description:
-      "Code du travail et pratiques RH en République Démocratique du Congo — édition mise à jour.",
-    url: "https://gutenberg.org/ebooks/34567",
-  },
-];
+export type LibraryApiType =
+  | "open_library"
+  | "gutenberg"
+  | "internet_archive"
+  | "google_books"
+  | "doaj"
+  | "crossref"
+  | "youtube";
 
 export const LIBRARY_SOURCE_ORDER = [
-  "Bibliothèque Ouverte",
+  "Biblioth\u00e8que Ouverte",
   "Projet Gutenberg",
   "Archives Internet",
   "Google Livres",
+  "YouTube",
 ];
 
 export function useSearchWorldLibraries(params: LibrarySearchQuery | null) {
   return useQuery<LibrarySearchResult[]>({
-    queryKey: ["worldLibraries", params?.query, params?.domain],
+    queryKey: [
+      "worldLibraries",
+      params?.query,
+      params?.domain,
+      params?.sources,
+    ],
     queryFn: async () => {
       if (!params?.query || params.query.trim().length < 3) return [];
       await new Promise((r) => setTimeout(r, 900));
-      const q = params.query.toLowerCase();
-      const domain = params.domain?.toLowerCase() ?? "";
-      const allWords = [...q.split(/\s+/), ...domain.split(/\s+/)].filter(
-        (w) => w.length > 2,
-      );
-      if (allWords.length === 0) return MOCK_LIBRARY_DB.slice(0, 6);
-      const scored = MOCK_LIBRARY_DB.map((item) => {
-        const text =
-          `${item.title} ${item.author} ${item.description}`.toLowerCase();
-        const matches = allWords.filter((w) => text.includes(w)).length;
-        return { item, matches };
-      });
-      const filtered = scored.filter((s) => s.matches > 0);
-      if (filtered.length === 0) return MOCK_LIBRARY_DB.slice(0, 6);
-      return filtered
-        .sort((a, b) => b.matches - a.matches)
-        .map((s) => s.item)
-        .slice(0, 12);
+      // Return YouTube results if youtube source is selected
+      if (params.sources?.includes("youtube")) {
+        return [
+          {
+            id: "yt-1",
+            title: `${params.query} — Guide complet pour débutants`,
+            author: "EDUCERT Academy",
+            source: "YouTube",
+            description: "Cours vidéo complet en français",
+            url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            videoId: "dQw4w9WgXcQ",
+            sourceType: "youtube",
+          },
+          {
+            id: "yt-2",
+            title: `Maîtriser ${params.query} en pratique`,
+            author: "Formation Pro RDC",
+            source: "YouTube",
+            description: "Formation professionnelle accélérée",
+            url: "https://www.youtube.com/watch?v=YQHsXMglC9A",
+            videoId: "YQHsXMglC9A",
+            sourceType: "youtube",
+          },
+        ];
+      }
+      return [];
     },
     enabled: !!params && params.query.trim().length >= 3,
     staleTime: 30000,
+  });
+}
+
+export function useSearchYouTubeVideos() {
+  return useMutation({
+    mutationFn: async (params: {
+      query: string;
+      maxResults?: number;
+    }): Promise<YouTubeVideoResult[]> => {
+      await new Promise((r) => setTimeout(r, 1200));
+      return [
+        {
+          videoId: "dQw4w9WgXcQ",
+          title: `${params.query} — Cours complet en français`,
+          channelTitle: "EDUCERT Academy",
+          description: "Formation professionnelle officielle — Module 1",
+          thumbnailUrl: "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+          duration: "45:22",
+        },
+        {
+          videoId: "YQHsXMglC9A",
+          title: `Maîtriser ${params.query} — Niveau avancé`,
+          channelTitle: "Formation Pro RDC",
+          description: "Techniques avancées et cas pratiques",
+          thumbnailUrl: "https://img.youtube.com/vi/YQHsXMglC9A/hqdefault.jpg",
+          duration: "1:12:05",
+        },
+        {
+          videoId: "3tmd-ClpJxA",
+          title: `Les fondamentaux de ${params.query}`,
+          channelTitle: "Académie Numérique Congo",
+          description: "Introduction et concepts de base",
+          thumbnailUrl: "https://img.youtube.com/vi/3tmd-ClpJxA/hqdefault.jpg",
+          duration: "28:47",
+        },
+      ];
+    },
+  });
+}
+
+export function useSearchRealLibraries() {
+  return useMutation({
+    mutationFn: async (_params: {
+      searchTerm: string;
+      sources?: string[];
+    }): Promise<string[]> => {
+      await new Promise((r) => setTimeout(r, 1200));
+      return [];
+    },
+  });
+}
+
+// ---- AI Tutor hooks ----
+
+const _tutorStore: Record<string, TutorMessage[]> = {};
+
+export function useGetTutorHistory(courseId: string) {
+  return useQuery<TutorMessage[]>({
+    queryKey: ["tutorHistory", courseId],
+    queryFn: async () => {
+      await new Promise((r) => setTimeout(r, 200));
+      return _tutorStore[courseId] ?? [];
+    },
+    enabled: !!courseId,
+    staleTime: 0,
+  });
+}
+
+export function useAskTutor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      courseId: string;
+      lessonId: string;
+      question: string;
+      lessonContext?: string;
+    }): Promise<TutorMessage> => {
+      const key = params.courseId;
+      if (!_tutorStore[key]) _tutorStore[key] = [];
+      const userMsg: TutorMessage = {
+        id: BigInt(Date.now()),
+        courseId: BigInt(0),
+        lessonId: BigInt(0),
+        userId: "user1",
+        role: "user",
+        content: params.question,
+        createdAt: BigInt(Date.now()),
+      };
+      _tutorStore[key].push(userMsg);
+      await new Promise((r) => setTimeout(r, 1200));
+      const aiReply: TutorMessage = {
+        id: BigInt(Date.now() + 1),
+        courseId: BigInt(0),
+        lessonId: BigInt(0),
+        userId: "ai",
+        role: "assistant",
+        content: `Excellente question\u00a0! En tant que votre tuteur, je vais vous expliquer ce concept.\n\nConcernant \u00ab\u00a0${params.question.slice(0, 80)}\u00a0\u00bb \u2014 ce sujet est fondamental dans le cadre de cette le\u00e7on. Il convient d'abord de poser les bases th\u00e9oriques, puis d'illustrer par des exemples concrets.\n\nN'h\u00e9sitez pas \u00e0 approfondir si vous souhaitez explorer un aspect particulier.`,
+        createdAt: BigInt(Date.now() + 1),
+      };
+      _tutorStore[key].push(aiReply);
+      return aiReply;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tutorHistory", vars.courseId],
+      });
+    },
+  });
+}
+
+export function useClearTutorHistory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (courseId: string) => {
+      await new Promise((r) => setTimeout(r, 200));
+      _tutorStore[courseId] = [];
+      return courseId;
+    },
+    onSuccess: (courseId) => {
+      queryClient.invalidateQueries({ queryKey: ["tutorHistory", courseId] });
+    },
+  });
+}
+
+// ---- Chapter quiz generation (AI) ----
+
+export function useGenerateChapterQuiz() {
+  return useMutation({
+    mutationFn: async (_params: {
+      courseId: string;
+      lessonId: string;
+      lessonContent: string;
+    }): Promise<string> => {
+      await new Promise((r) => setTimeout(r, 1500));
+      const questions = [
+        {
+          id: "q1",
+          text: "Quelle est la d\u00e9finition correcte du concept principal abord\u00e9 dans cette le\u00e7on\u00a0?",
+          options: [
+            "Une m\u00e9thode permettant d'analyser et de structurer les probl\u00e8mes complexes",
+            "Un outil de gestion des ressources humaines uniquement",
+            "Une technique de marketing digital",
+            "Un cadre de d\u00e9veloppement logiciel exclusivement",
+          ],
+          correctIndex: 0,
+          explanation:
+            "Le concept principal porte sur l'analyse et la structuration des probl\u00e8mes complexes.",
+        },
+        {
+          id: "q2",
+          text: "Parmi les \u00e9l\u00e9ments suivants, lequel est essentiel \u00e0 la mise en pratique des notions de ce chapitre\u00a0?",
+          options: [
+            "La m\u00e9morisation passive des d\u00e9finitions",
+            "L'application pratique et la r\u00e9flexion critique",
+            "L'utilisation exclusive d'outils num\u00e9riques",
+            "Le travail individuel sans collaboration",
+          ],
+          correctIndex: 1,
+          explanation:
+            "L'application pratique combin\u00e9e \u00e0 la r\u00e9flexion critique est indispensable pour ma\u00eetriser les comp\u00e9tences d\u00e9velopp\u00e9es dans ce chapitre.",
+        },
+        {
+          id: "q3",
+          text: "Quel est l'objectif p\u00e9dagogique principal de ce chapitre\u00a0?",
+          options: [
+            "Acqu\u00e9rir des comp\u00e9tences th\u00e9oriques sans application",
+            "M\u00e9moriser une liste de termes techniques",
+            "D\u00e9velopper une compr\u00e9hension approfondie et op\u00e9rationnelle",
+            "Obtenir un certificat sans apprentissage r\u00e9el",
+          ],
+          correctIndex: 2,
+          explanation:
+            "L'objectif est de d\u00e9velopper une compr\u00e9hension \u00e0 la fois th\u00e9orique et pratique.",
+        },
+        {
+          id: "q4",
+          text: "Comment les ressources acad\u00e9miques contribuent-elles \u00e0 votre formation\u00a0?",
+          options: [
+            "Elles remplacent l'effort personnel de l'apprenant",
+            "Elles servent uniquement de d\u00e9coration bibliographique",
+            "Elles apportent une base scientifique authentique et v\u00e9rifiable",
+            "Elles sont optionnelles et sans impact sur l'apprentissage",
+          ],
+          correctIndex: 2,
+          explanation:
+            "Les ressources acad\u00e9miques authentiques constituent le socle scientifique du cours.",
+        },
+        {
+          id: "q5",
+          text: "Quelle approche est recommand\u00e9e pour valider sa compr\u00e9hension apr\u00e8s une le\u00e7on\u00a0?",
+          options: [
+            "Passer directement \u00e0 la le\u00e7on suivante sans r\u00e9vision",
+            "R\u00e9pondre au quiz de validation et consulter le tuteur IA en cas de doute",
+            "Copier les r\u00e9ponses des autres apprenants",
+            "Ignorer les \u00e9valuations et se concentrer sur le certificat final",
+          ],
+          correctIndex: 1,
+          explanation:
+            "La validation par quiz et le recours au tuteur IA sont les meilleures pratiques pour consolider les acquis.",
+        },
+      ];
+      return JSON.stringify({ questions, passingScore: 70 });
+    },
+  });
+}
+
+// ---- Notification hooks ----
+
+export function useGetMyNotifications(_unreadOnly = false) {
+  return useQuery<AppNotification[]>({
+    queryKey: ["notifications", _unreadOnly],
+    queryFn: async () => [],
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (notifId: string) => {
+      await new Promise((r) => setTimeout(r, 200));
+      return notifId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await new Promise((r) => setTimeout(r, 300));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useClearMyNotifications() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await new Promise((r) => setTimeout(r, 300));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+// ---- Research project hooks ----
+
+const _mockResearchProjects: ResearchProject[] = [];
+
+export function useListMyResearchProjects() {
+  return useQuery<ResearchProject[]>({
+    queryKey: ["researchProjects"],
+    queryFn: async () => [..._mockResearchProjects],
+    staleTime: 10000,
+  });
+}
+
+export function useGetResearchProject(projectId: bigint | string | null) {
+  return useQuery<ResearchProject | null>({
+    queryKey: ["researchProject", projectId?.toString()],
+    queryFn: async () =>
+      _mockResearchProjects.find(
+        (p) => p.id.toString() === projectId?.toString(),
+      ) ?? null,
+    enabled: !!projectId,
+    staleTime: 0,
+  });
+}
+
+export function useCreateResearchProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      title: string;
+      researchType?: ResearchType;
+      domain?: string;
+      institution?: string;
+      directorName?: string;
+    }): Promise<ResearchProject> => {
+      await new Promise((r) => setTimeout(r, 500));
+      const project: ResearchProject = {
+        id: BigInt(Date.now()),
+        userId: "user1",
+        title: params.title,
+        researchType: params.researchType,
+        domain: params.domain,
+        institution: params.institution,
+        directorName: params.directorName,
+        steps: [],
+        currentStep: "sujet",
+        status: "draft",
+        createdAt: BigInt(Date.now()),
+        updatedAt: BigInt(Date.now()),
+        resourceCitations: [],
+      };
+      _mockResearchProjects.push(project);
+      return project;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["researchProjects"] });
+    },
+  });
+}
+
+export function useSendResearchMessage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      projectId: bigint | string;
+      step: string;
+      userInput?: string;
+      message?: string;
+    }): Promise<{ ok: string } | { err: string }> => {
+      await new Promise((r) => setTimeout(r, 1400));
+      const project = _mockResearchProjects.find(
+        (p) => p.id.toString() === params.projectId.toString(),
+      );
+      if (!project) return { err: "Projet non trouvé" };
+      const aiResponse = buildResearchAIResponse(
+        params.step,
+        params.userInput ?? params.message ?? "",
+      );
+      const existingIdx = project.steps.findIndex(([s]) => s === params.step);
+      const stepData = {
+        step: params.step as ResearchProject["currentStep"],
+        content: params.userInput ?? params.message ?? "",
+        aiResponse,
+        validated: false,
+        validatedAt: null,
+        resources: [
+          "Méthodologie de recherche scientifique — Prof. K. Mbula, UNIKIN",
+          "Guide rédactionnel des TFC/Mémoires — Ministère de l'ESURS",
+        ],
+      };
+      if (existingIdx >= 0) {
+        project.steps[existingIdx] = [
+          params.step as ResearchProject["currentStep"],
+          stepData,
+        ];
+      } else {
+        project.steps.push([
+          params.step as ResearchProject["currentStep"],
+          stepData,
+        ]);
+      }
+      project.status = "in_progress";
+      project.updatedAt = BigInt(Date.now());
+      return { ok: aiResponse };
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ["researchProject", vars.projectId?.toString()],
+      });
+      queryClient.invalidateQueries({ queryKey: ["researchProjects"] });
+    },
+  });
+}
+
+function buildResearchAIResponse(step: string, userInput: string): string {
+  const preview = userInput.slice(0, 100);
+  const responses: Record<string, string> = {
+    sujet: `Excellent choix de sujet ! Votre proposition « ${preview} » est pertinente et répond à un besoin réel dans le contexte congolais.\n\nEn tant que votre Directeur de Recherche, je vous recommande de :\n• Délimiter précisément le champ géographique et temporel\n• Identifier les principales variables de votre étude\n• Vérifier la disponibilité des données primaires et secondaires\n\nCe sujet est scientifiquement recevable. Passez maintenant à la formulation de votre problématique.`,
+    problematique: `Votre problématique « ${preview} » soulève une question centrale légitime.\n\nAnalyse académique :\n• La question est bien posée et délimitée\n• Elle s'inscrit dans la littérature existante du domaine\n• Elle permet une réponse empiriquement vérifiable\n\nJe valide cette problématique sous réserve que vous précisiez l'unité d'analyse (individus, entreprises, institutions). Formulez maintenant vos hypothèses de travail.`,
+    hypotheses: `Vos hypothèses « ${preview} » sont bien articulées.\n\nÉvaluation méthodologique :\n• H1 est vérifiable empiriquement — bonne formulation\n• Assurez-vous que chaque hypothèse découle logiquement de la problématique\n• Distinguez hypothèse principale et hypothèses secondaires\n\nCes hypothèses sont scientifiquement acceptables. Procédez maintenant à la définition de votre méthodologie.`,
+    methodologie: `L'approche méthodologique « ${preview} » est cohérente avec vos objectifs.\n\nRecommandations :\n• Précisez si vous optez pour une approche qualitative, quantitative ou mixte\n• Décrivez votre population cible et votre échantillon\n• Mentionnez les outils de collecte (questionnaire, entretien, observation)\n\nCette méthodologie est validée. Construisez maintenant votre plan de travail détaillé.`,
+    plan: `Votre plan de travail est structuré de manière académique.\n\nStructure validée :\n• Introduction générale\n• Chapitre I : Cadre théorique et conceptuel\n• Chapitre II : Méthodologie de recherche\n• Chapitre III : Présentation et analyse des résultats\n• Chapitre IV : Discussion et recommandations\n• Conclusion générale et perspectives\n\nCe plan respecte les normes académiques de l'ESURS. Vous pouvez commencer la rédaction.`,
+    redaction: `Je vous accompagne dans votre rédaction sur « ${preview} ».\n\nConseils de rédaction académique :\n• Rédigez à la 3ème personne du singulier\n• Chaque affirmation doit être sourcée ou démontrée\n• Utilisez des transitions logiques entre les sections\n\nJe reste disponible pour analyser vos sections au fur et à mesure. Soumettez vos paragraphes pour une révision approfondie.`,
+  };
+  return (
+    responses[step] ??
+    `Analyse de votre contribution « ${preview} » effectuée. Continuez selon les directives méthodologiques.`
+  );
+}
+
+export function useValidateResearchStep() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      projectId: bigint | string;
+      step: string;
+    }): Promise<ResearchProject> => {
+      await new Promise((r) => setTimeout(r, 400));
+      const project = _mockResearchProjects.find(
+        (p) => p.id.toString() === params.projectId.toString(),
+      );
+      if (!project) throw new Error("Projet non trouvé");
+      const stepOrder = [
+        "sujet",
+        "problematique",
+        "hypotheses",
+        "methodologie",
+        "plan",
+        "redaction",
+      ] as const;
+      // Mark step as validated
+      const stepIdx = project.steps.findIndex(([s]) => s === params.step);
+      if (stepIdx >= 0) {
+        project.steps[stepIdx][1].validated = true;
+        project.steps[stepIdx][1].validatedAt = BigInt(Date.now());
+      }
+      // Advance to next step
+      const currentIdx = stepOrder.indexOf(
+        params.step as (typeof stepOrder)[number],
+      );
+      if (currentIdx < stepOrder.length - 1) {
+        project.currentStep = stepOrder[currentIdx + 1];
+      } else {
+        project.status = "completed";
+      }
+      project.updatedAt = BigInt(Date.now());
+      return { ...project, steps: [...project.steps] };
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ["researchProject", vars.projectId?.toString()],
+      });
+      queryClient.invalidateQueries({ queryKey: ["researchProjects"] });
+    },
+  });
+}
+
+// ---- Domain hooks ----
+
+let _mockDomains: Domain[] = [];
+
+export function useListDomains() {
+  return useQuery<Domain[]>({
+    queryKey: ["domains"],
+    queryFn: async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      return _mockDomains;
+    },
+    staleTime: 60000,
+  });
+}
+
+export function useCreateDomain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      name: string;
+      description: string;
+      tier: DomainTier;
+      requiresManualApproval: boolean;
+    }): Promise<bigint> => {
+      await new Promise((r) => setTimeout(r, 500));
+      const id = BigInt(Date.now());
+      _mockDomains = [
+        ..._mockDomains,
+        {
+          id,
+          ...params,
+          createdAt: BigInt(Date.now()),
+          createdBy: "admin",
+        },
+      ];
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["domains"] });
+    },
+  });
+}
+
+export function useUpdateDomain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      id: bigint;
+      name?: string;
+      description?: string;
+      tier?: DomainTier;
+      requiresManualApproval?: boolean;
+    }): Promise<boolean> => {
+      await new Promise((r) => setTimeout(r, 400));
+      _mockDomains = _mockDomains.map((d) =>
+        d.id === params.id ? { ...d, ...params } : d,
+      );
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["domains"] });
+    },
+  });
+}
+
+export function useDeleteDomain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: bigint | { id: bigint }): Promise<boolean> => {
+      await new Promise((r) => setTimeout(r, 400));
+      const id = typeof params === "bigint" ? params : params.id;
+      _mockDomains = _mockDomains.filter((d) => d.id !== id);
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["domains"] });
+    },
+  });
+}
+
+// ---- Admin learner / enrollment hooks ----
+
+export function useListEnrollments(_courseId?: string) {
+  return useQuery<Enrollment[]>({
+    queryKey: ["allEnrollments", _courseId],
+    queryFn: async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      return [];
+    },
+    staleTime: 30000,
+  });
+}
+
+export function useGenerateInactivityNotifications() {
+  return useMutation({
+    mutationFn: async (): Promise<number> => {
+      await new Promise((r) => setTimeout(r, 1000));
+      return 0;
+    },
+  });
+}
+
+export function useGetInactivityNotifCount() {
+  return useQuery<number>({
+    queryKey: ["inactivityNotifCount"],
+    queryFn: async () => 0,
+    staleTime: 60000,
+  });
+}
+
+export function useSendLearnerNotification() {
+  return useMutation({
+    mutationFn: async (_params: {
+      learnerId: string;
+      message?: string;
+      name?: string;
+      courseId?: string;
+    }): Promise<boolean> => {
+      await new Promise((r) => setTimeout(r, 500));
+      return true;
+    },
   });
 }

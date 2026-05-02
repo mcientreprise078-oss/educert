@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useGenerateInactivityNotifications,
   useGetAdminModelConfig,
+  useGetInactivityNotifCount,
   useListAllGenerations,
   useListResources,
   useSetAdminModelConfig,
@@ -26,7 +28,9 @@ import {
   CheckCircle,
   ChevronRight,
   Clock,
+  Crown,
   FileStack,
+  GraduationCap,
   Layers,
   RefreshCw,
   Save,
@@ -257,6 +261,7 @@ export default function AdminDashboardPage() {
   const { data: generations = [], isLoading: generationsLoading } =
     useListAllGenerations();
 
+  const inactivityNotifCount = 0;
   const isLoading = resourcesLoading || generationsLoading;
 
   const totalResources = resources.length;
@@ -335,6 +340,20 @@ export default function AdminDashboardPage() {
       icon: Bot,
       href: "/admin/settings",
       ocid: "admin_dashboard.nav_settings",
+    },
+    {
+      label: "Suivi des Apprenants",
+      description: "Progression des étudiants",
+      icon: GraduationCap,
+      href: "/admin/learners",
+      ocid: "admin_dashboard.nav_learners",
+    },
+    {
+      label: "Domaines VIP",
+      description: "Catégories de formation",
+      icon: Crown,
+      href: "/admin/domains",
+      ocid: "admin_dashboard.nav_domains",
     },
   ];
 
@@ -447,6 +466,28 @@ export default function AdminDashboardPage() {
 
           {/* AI Model Settings */}
           <AIModelSettingsPanel />
+
+          {/* Notification stats */}
+          {inactivityNotifCount > 0 && (
+            <Card data-ocid="admin_dashboard.notif_stats">
+              <CardContent className="flex items-center gap-4 pt-5 pb-5 px-5">
+                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                  <Bot className="size-5 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm">
+                    IA Booster — Rappels envoyés ce mois
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Notifications in-app personnalisées aux apprenants inactifs
+                  </p>
+                </div>
+                <p className="text-3xl font-bold font-display text-accent shrink-0">
+                  {inactivityNotifCount}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent generations */}
           <Card data-ocid="admin_dashboard.recent_generations">

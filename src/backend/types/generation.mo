@@ -33,6 +33,7 @@ module {
     #claudeValidation;
     #gpt5Validation;
     #fullClaude;
+    #gemini_flash;
   };
 
   /// Demande de génération de cours (état interne — champs mutables)

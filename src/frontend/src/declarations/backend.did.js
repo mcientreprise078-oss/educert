@@ -79,6 +79,19 @@ export const CourseGenerationPublic = IDL.Record({
   'resourceIds' : IDL.Vec(IDL.Nat),
   'requestedBy' : UserId,
 });
+export const TutorMessageRole = IDL.Variant({
+  'user' : IDL.Null,
+  'assistant' : IDL.Null,
+});
+export const TutorMessage = IDL.Record({
+  'id' : IDL.Nat,
+  'lessonId' : LessonId,
+  'content' : IDL.Text,
+  'userId' : UserId,
+  'createdAt' : Timestamp,
+  'role' : TutorMessageRole,
+  'courseId' : CourseId,
+});
 export const UserRole__1 = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -97,6 +110,67 @@ export const CourseInput = IDL.Record({
   'learningOutcomes' : IDL.Vec(IDL.Text),
   'category' : IDL.Text,
 });
+export const DomainTier = IDL.Variant({
+  'vip' : IDL.Null,
+  'standard' : IDL.Null,
+});
+export const Domain = IDL.Record({
+  'id' : IDL.Nat,
+  'name' : IDL.Text,
+  'createdAt' : Timestamp,
+  'createdBy' : UserId,
+  'requiresManualApproval' : IDL.Bool,
+  'tier' : DomainTier,
+  'description' : IDL.Text,
+});
+export const ResearchStatus = IDL.Variant({
+  'in_progress' : IDL.Null,
+  'completed' : IDL.Null,
+  'draft' : IDL.Null,
+});
+export const ResearchStep = IDL.Variant({
+  'plan' : IDL.Null,
+  'problematique' : IDL.Null,
+  'hypotheses' : IDL.Null,
+  'sujet' : IDL.Null,
+  'methodologie' : IDL.Null,
+  'redaction' : IDL.Null,
+});
+export const ResearchStepDataPublic = IDL.Record({
+  'content' : IDL.Text,
+  'resources' : IDL.Vec(IDL.Text),
+  'validated' : IDL.Bool,
+  'step' : ResearchStep,
+  'validatedAt' : IDL.Opt(Timestamp),
+  'aiResponse' : IDL.Text,
+});
+export const ResearchProjectPublic = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : ResearchStatus,
+  'title' : IDL.Text,
+  'userId' : UserId,
+  'createdAt' : Timestamp,
+  'resourceCitations' : IDL.Vec(IDL.Text),
+  'updatedAt' : Timestamp,
+  'steps' : IDL.Vec(IDL.Tuple(ResearchStep, ResearchStepDataPublic)),
+  'currentStep' : ResearchStep,
+});
+export const CertificateId = IDL.Text;
+export const Certificate = IDL.Record({
+  'id' : CertificateId,
+  'ministryReviewerName' : IDL.Opt(IDL.Text),
+  'approvedAt' : IDL.Opt(Timestamp),
+  'isMinistryApproved' : IDL.Bool,
+  'portfolioPhotoUrl' : IDL.Opt(IDL.Text),
+  'resourceCitations' : IDL.Vec(IDL.Text),
+  'learnerId' : UserId,
+  'learnerName' : IDL.Text,
+  'issuedAt' : Timestamp,
+  'courseTitle' : IDL.Text,
+  'qrCodePayload' : IDL.Text,
+  'courseId' : CourseId,
+  'instructorName' : IDL.Text,
+});
 export const UserRole = IDL.Variant({
   'ministryReviewer' : IDL.Null,
   'learner' : IDL.Null,
@@ -109,21 +183,7 @@ export const UserProfilePublic = IDL.Record({
   'name' : IDL.Text,
   'createdAt' : Timestamp,
   'role' : UserRole,
-});
-export const CertificateId = IDL.Text;
-export const Certificate = IDL.Record({
-  'id' : CertificateId,
-  'ministryReviewerName' : IDL.Opt(IDL.Text),
-  'approvedAt' : IDL.Opt(Timestamp),
-  'isMinistryApproved' : IDL.Bool,
-  'resourceCitations' : IDL.Vec(IDL.Text),
-  'learnerId' : UserId,
-  'learnerName' : IDL.Text,
-  'issuedAt' : Timestamp,
-  'courseTitle' : IDL.Text,
-  'qrCodePayload' : IDL.Text,
-  'courseId' : CourseId,
-  'instructorName' : IDL.Text,
+  'avatarUrl' : IDL.Opt(IDL.Text),
 });
 export const CoursePublic = IDL.Record({
   'id' : CourseId,
@@ -169,6 +229,23 @@ export const LessonPublic = IDL.Record({
   'videoBlob' : IDL.Opt(ExternalBlob),
   'lessonType' : LessonType,
   'courseId' : CourseId,
+});
+export const NotificationType = IDL.Variant({
+  'course_update' : IDL.Null,
+  'certificate_issued' : IDL.Null,
+  'quiz_ready' : IDL.Null,
+  'inactivity_reminder' : IDL.Null,
+  'research_feedback' : IDL.Null,
+});
+export const NotificationPublic = IDL.Record({
+  'id' : IDL.Nat,
+  'title' : IDL.Text,
+  'userId' : UserId,
+  'notificationType' : NotificationType,
+  'createdAt' : Timestamp,
+  'isRead' : IDL.Bool,
+  'message' : IDL.Text,
+  'courseId' : IDL.Opt(CourseId),
 });
 export const QuizId = IDL.Nat;
 export const QuizQuestion = IDL.Record({
@@ -229,7 +306,9 @@ export const LibrarySearchResult = IDL.Record({
   'year' : IDL.Opt(IDL.Text),
   'description' : IDL.Text,
   'author' : IDL.Text,
+  'sourceType' : IDL.Opt(IDL.Text),
   'coverUrl' : IDL.Opt(IDL.Text),
+  'videoId' : IDL.Opt(IDL.Text),
 });
 export const QuizSubmission = IDL.Record({
   'answers' : IDL.Vec(IDL.Nat),
@@ -305,9 +384,46 @@ export const idlService = IDL.Service({
       [CourseGenerationPublic],
       [],
     ),
+  'askTutor' : IDL.Func(
+      [
+        IDL.Record({
+          'lessonId' : LessonId,
+          'question' : IDL.Text,
+          'lessonContext' : IDL.Text,
+          'courseId' : CourseId,
+        }),
+      ],
+      [IDL.Variant({ 'ok' : TutorMessage, 'err' : IDL.Text })],
+      [],
+    ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
+  'clearMyNotifications' : IDL.Func(
+      [],
+      [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+      [],
+    ),
+  'clearTutorHistory' : IDL.Func(
+      [IDL.Record({ 'courseId' : CourseId })],
+      [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+      [],
+    ),
   'createCourse' : IDL.Func([CourseInput], [CourseId], []),
+  'createDomain' : IDL.Func(
+      [IDL.Text, DomainTier, IDL.Text, IDL.Bool],
+      [IDL.Variant({ 'ok' : Domain, 'err' : IDL.Text })],
+      [],
+    ),
+  'createResearchProject' : IDL.Func(
+      [IDL.Record({ 'title' : IDL.Text })],
+      [IDL.Variant({ 'ok' : ResearchProjectPublic, 'err' : IDL.Text })],
+      [],
+    ),
   'deleteCourse' : IDL.Func([CourseId], [], []),
+  'deleteDomain' : IDL.Func(
+      [IDL.Nat],
+      [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+      [],
+    ),
   'deleteExternalCourse' : IDL.Func(
       [IDL.Text],
       [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
@@ -317,6 +433,17 @@ export const idlService = IDL.Service({
   'deleteQuiz' : IDL.Func([LessonId], [], []),
   'deleteResource' : IDL.Func([IDL.Nat], [], []),
   'enrollCourse' : IDL.Func([CourseId], [], []),
+  'generateCertificate' : IDL.Func([CourseId], [Certificate], []),
+  'generateChapterQuiz' : IDL.Func(
+      [CourseId, LessonId, IDL.Text],
+      [IDL.Variant({ 'ok' : IDL.Text, 'err' : IDL.Text })],
+      [],
+    ),
+  'generateInactivityNotifications' : IDL.Func(
+      [],
+      [IDL.Variant({ 'ok' : IDL.Nat, 'err' : IDL.Text })],
+      [],
+    ),
   'getAdminModelConfig' : IDL.Func([], [AIModelConfig], ['query']),
   'getCallerUserProfile' : IDL.Func(
       [],
@@ -344,12 +471,27 @@ export const idlService = IDL.Service({
   'getLessons' : IDL.Func([CourseId], [IDL.Vec(LessonPublic)], ['query']),
   'getMyCertificates' : IDL.Func([], [IDL.Vec(Certificate)], ['query']),
   'getMyEnrollments' : IDL.Func([], [IDL.Vec(EnrollmentPublic)], ['query']),
+  'getMyNotifications' : IDL.Func(
+      [IDL.Record({ 'unreadOnly' : IDL.Bool })],
+      [IDL.Vec(NotificationPublic)],
+      ['query'],
+    ),
   'getQuiz' : IDL.Func([LessonId], [IDL.Opt(QuizPublic)], ['query']),
+  'getResearchProject' : IDL.Func(
+      [IDL.Record({ 'projectId' : IDL.Nat })],
+      [IDL.Variant({ 'ok' : ResearchProjectPublic, 'err' : IDL.Text })],
+      ['query'],
+    ),
   'getResource' : IDL.Func([IDL.Nat], [IDL.Opt(ResourcePublic)], ['query']),
   'getUserProfile' : IDL.Func(
       [UserId],
       [IDL.Opt(UserProfilePublic)],
       ['query'],
+    ),
+  'importGoogleDocResource' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Principal],
+      [IDL.Variant({ 'ok' : IDL.Nat, 'err' : IDL.Text })],
+      [],
     ),
   'indexResourceText' : IDL.Func([IDL.Nat, IDL.Text], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
@@ -363,6 +505,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(CoursePublic)],
       ['query'],
     ),
+  'listDomains' : IDL.Func([], [IDL.Vec(Domain)], ['query']),
   'listExternalCourses' : IDL.Func(
       [],
       [IDL.Vec(ExternalCoursePublic)],
@@ -373,12 +516,32 @@ export const idlService = IDL.Service({
       [IDL.Vec(CourseGenerationPublic)],
       ['query'],
     ),
+  'listMyResearchProjects' : IDL.Func(
+      [],
+      [IDL.Vec(ResearchProjectPublic)],
+      ['query'],
+    ),
   'listResources' : IDL.Func(
       [IDL.Opt(ResourceType), IDL.Opt(IDL.Text)],
       [IDL.Vec(ResourcePublic)],
       ['query'],
     ),
+  'markAllNotificationsRead' : IDL.Func(
+      [],
+      [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+      [],
+    ),
   'markLessonComplete' : IDL.Func([CourseId, LessonId], [], []),
+  'markNotificationRead' : IDL.Func(
+      [IDL.Record({ 'notifId' : IDL.Nat })],
+      [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+      [],
+    ),
+  'queryTutorHistory' : IDL.Func(
+      [IDL.Record({ 'courseId' : CourseId })],
+      [IDL.Vec(TutorMessage)],
+      ['query'],
+    ),
   'rejectGeneratedCourse' : IDL.Func(
       [IDL.Nat, IDL.Text],
       [CourseGenerationPublic],
@@ -391,16 +554,36 @@ export const idlService = IDL.Service({
       [],
     ),
   'runAIGeneration' : IDL.Func([IDL.Nat], [], []),
-  'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text, UserRole], [], []),
+  'saveCallerUserProfile' : IDL.Func(
+      [IDL.Text, IDL.Text, UserRole, IDL.Opt(IDL.Text)],
+      [],
+      [],
+    ),
   'saveLastViewedLesson' : IDL.Func([CourseId, LessonId], [], []),
   'searchCourses' : IDL.Func(
       [IDL.Text, IDL.Opt(IDL.Text)],
       [IDL.Vec(CoursePublic)],
       ['query'],
     ),
+  'searchRealLibraries' : IDL.Func(
+      [IDL.Text, IDL.Vec(IDL.Text)],
+      [IDL.Vec(IDL.Text)],
+      [],
+    ),
   'searchWorldLibraries' : IDL.Func(
       [LibrarySearchQuery],
       [IDL.Vec(LibrarySearchResult)],
+      [],
+    ),
+  'sendResearchMessage' : IDL.Func(
+      [
+        IDL.Record({
+          'step' : ResearchStep,
+          'userInput' : IDL.Text,
+          'projectId' : IDL.Nat,
+        }),
+      ],
+      [IDL.Variant({ 'ok' : IDL.Text, 'err' : IDL.Text })],
       [],
     ),
   'setAdminModelConfig' : IDL.Func([AIModelConfig], [], []),
@@ -417,8 +600,33 @@ export const idlService = IDL.Service({
       [TransformationOutput],
       ['query'],
     ),
+  'transformNotifHttpResponse' : IDL.Func(
+      [TransformationInput],
+      [TransformationOutput],
+      ['query'],
+    ),
+  'transformResearchHttpResponse' : IDL.Func(
+      [TransformationInput],
+      [TransformationOutput],
+      ['query'],
+    ),
+  'transformResourcesHttpResponse' : IDL.Func(
+      [TransformationInput],
+      [TransformationOutput],
+      ['query'],
+    ),
+  'transformTutorHttpResponse' : IDL.Func(
+      [TransformationInput],
+      [TransformationOutput],
+      ['query'],
+    ),
   'unenrollCourse' : IDL.Func([CourseId], [], []),
   'updateCourse' : IDL.Func([CourseId, CourseInput], [], []),
+  'updateDomain' : IDL.Func(
+      [IDL.Nat, DomainTier, IDL.Bool],
+      [IDL.Variant({ 'ok' : Domain, 'err' : IDL.Text })],
+      [],
+    ),
   'updateLesson' : IDL.Func([LessonId, LessonInput], [], []),
   'updateResourceMetadata' : IDL.Func(
       [
@@ -441,6 +649,11 @@ export const idlService = IDL.Service({
         IDL.Opt(IDL.Vec(IDL.Text)),
       ],
       [ResourcePublic],
+      [],
+    ),
+  'validateResearchStep' : IDL.Func(
+      [IDL.Record({ 'step' : ResearchStep, 'projectId' : IDL.Nat })],
+      [IDL.Variant({ 'ok' : ResearchProjectPublic, 'err' : IDL.Text })],
       [],
     ),
   'verifyCertificateQR' : IDL.Func(
@@ -521,6 +734,19 @@ export const idlFactory = ({ IDL }) => {
     'resourceIds' : IDL.Vec(IDL.Nat),
     'requestedBy' : UserId,
   });
+  const TutorMessageRole = IDL.Variant({
+    'user' : IDL.Null,
+    'assistant' : IDL.Null,
+  });
+  const TutorMessage = IDL.Record({
+    'id' : IDL.Nat,
+    'lessonId' : LessonId,
+    'content' : IDL.Text,
+    'userId' : UserId,
+    'createdAt' : Timestamp,
+    'role' : TutorMessageRole,
+    'courseId' : CourseId,
+  });
   const UserRole__1 = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
@@ -539,6 +765,64 @@ export const idlFactory = ({ IDL }) => {
     'learningOutcomes' : IDL.Vec(IDL.Text),
     'category' : IDL.Text,
   });
+  const DomainTier = IDL.Variant({ 'vip' : IDL.Null, 'standard' : IDL.Null });
+  const Domain = IDL.Record({
+    'id' : IDL.Nat,
+    'name' : IDL.Text,
+    'createdAt' : Timestamp,
+    'createdBy' : UserId,
+    'requiresManualApproval' : IDL.Bool,
+    'tier' : DomainTier,
+    'description' : IDL.Text,
+  });
+  const ResearchStatus = IDL.Variant({
+    'in_progress' : IDL.Null,
+    'completed' : IDL.Null,
+    'draft' : IDL.Null,
+  });
+  const ResearchStep = IDL.Variant({
+    'plan' : IDL.Null,
+    'problematique' : IDL.Null,
+    'hypotheses' : IDL.Null,
+    'sujet' : IDL.Null,
+    'methodologie' : IDL.Null,
+    'redaction' : IDL.Null,
+  });
+  const ResearchStepDataPublic = IDL.Record({
+    'content' : IDL.Text,
+    'resources' : IDL.Vec(IDL.Text),
+    'validated' : IDL.Bool,
+    'step' : ResearchStep,
+    'validatedAt' : IDL.Opt(Timestamp),
+    'aiResponse' : IDL.Text,
+  });
+  const ResearchProjectPublic = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : ResearchStatus,
+    'title' : IDL.Text,
+    'userId' : UserId,
+    'createdAt' : Timestamp,
+    'resourceCitations' : IDL.Vec(IDL.Text),
+    'updatedAt' : Timestamp,
+    'steps' : IDL.Vec(IDL.Tuple(ResearchStep, ResearchStepDataPublic)),
+    'currentStep' : ResearchStep,
+  });
+  const CertificateId = IDL.Text;
+  const Certificate = IDL.Record({
+    'id' : CertificateId,
+    'ministryReviewerName' : IDL.Opt(IDL.Text),
+    'approvedAt' : IDL.Opt(Timestamp),
+    'isMinistryApproved' : IDL.Bool,
+    'portfolioPhotoUrl' : IDL.Opt(IDL.Text),
+    'resourceCitations' : IDL.Vec(IDL.Text),
+    'learnerId' : UserId,
+    'learnerName' : IDL.Text,
+    'issuedAt' : Timestamp,
+    'courseTitle' : IDL.Text,
+    'qrCodePayload' : IDL.Text,
+    'courseId' : CourseId,
+    'instructorName' : IDL.Text,
+  });
   const UserRole = IDL.Variant({
     'ministryReviewer' : IDL.Null,
     'learner' : IDL.Null,
@@ -551,21 +835,7 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'createdAt' : Timestamp,
     'role' : UserRole,
-  });
-  const CertificateId = IDL.Text;
-  const Certificate = IDL.Record({
-    'id' : CertificateId,
-    'ministryReviewerName' : IDL.Opt(IDL.Text),
-    'approvedAt' : IDL.Opt(Timestamp),
-    'isMinistryApproved' : IDL.Bool,
-    'resourceCitations' : IDL.Vec(IDL.Text),
-    'learnerId' : UserId,
-    'learnerName' : IDL.Text,
-    'issuedAt' : Timestamp,
-    'courseTitle' : IDL.Text,
-    'qrCodePayload' : IDL.Text,
-    'courseId' : CourseId,
-    'instructorName' : IDL.Text,
+    'avatarUrl' : IDL.Opt(IDL.Text),
   });
   const CoursePublic = IDL.Record({
     'id' : CourseId,
@@ -611,6 +881,23 @@ export const idlFactory = ({ IDL }) => {
     'videoBlob' : IDL.Opt(ExternalBlob),
     'lessonType' : LessonType,
     'courseId' : CourseId,
+  });
+  const NotificationType = IDL.Variant({
+    'course_update' : IDL.Null,
+    'certificate_issued' : IDL.Null,
+    'quiz_ready' : IDL.Null,
+    'inactivity_reminder' : IDL.Null,
+    'research_feedback' : IDL.Null,
+  });
+  const NotificationPublic = IDL.Record({
+    'id' : IDL.Nat,
+    'title' : IDL.Text,
+    'userId' : UserId,
+    'notificationType' : NotificationType,
+    'createdAt' : Timestamp,
+    'isRead' : IDL.Bool,
+    'message' : IDL.Text,
+    'courseId' : IDL.Opt(CourseId),
   });
   const QuizId = IDL.Nat;
   const QuizQuestion = IDL.Record({
@@ -671,7 +958,9 @@ export const idlFactory = ({ IDL }) => {
     'year' : IDL.Opt(IDL.Text),
     'description' : IDL.Text,
     'author' : IDL.Text,
+    'sourceType' : IDL.Opt(IDL.Text),
     'coverUrl' : IDL.Opt(IDL.Text),
+    'videoId' : IDL.Opt(IDL.Text),
   });
   const QuizSubmission = IDL.Record({
     'answers' : IDL.Vec(IDL.Nat),
@@ -744,9 +1033,46 @@ export const idlFactory = ({ IDL }) => {
         [CourseGenerationPublic],
         [],
       ),
+    'askTutor' : IDL.Func(
+        [
+          IDL.Record({
+            'lessonId' : LessonId,
+            'question' : IDL.Text,
+            'lessonContext' : IDL.Text,
+            'courseId' : CourseId,
+          }),
+        ],
+        [IDL.Variant({ 'ok' : TutorMessage, 'err' : IDL.Text })],
+        [],
+      ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
+    'clearMyNotifications' : IDL.Func(
+        [],
+        [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+        [],
+      ),
+    'clearTutorHistory' : IDL.Func(
+        [IDL.Record({ 'courseId' : CourseId })],
+        [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+        [],
+      ),
     'createCourse' : IDL.Func([CourseInput], [CourseId], []),
+    'createDomain' : IDL.Func(
+        [IDL.Text, DomainTier, IDL.Text, IDL.Bool],
+        [IDL.Variant({ 'ok' : Domain, 'err' : IDL.Text })],
+        [],
+      ),
+    'createResearchProject' : IDL.Func(
+        [IDL.Record({ 'title' : IDL.Text })],
+        [IDL.Variant({ 'ok' : ResearchProjectPublic, 'err' : IDL.Text })],
+        [],
+      ),
     'deleteCourse' : IDL.Func([CourseId], [], []),
+    'deleteDomain' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+        [],
+      ),
     'deleteExternalCourse' : IDL.Func(
         [IDL.Text],
         [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
@@ -756,6 +1082,17 @@ export const idlFactory = ({ IDL }) => {
     'deleteQuiz' : IDL.Func([LessonId], [], []),
     'deleteResource' : IDL.Func([IDL.Nat], [], []),
     'enrollCourse' : IDL.Func([CourseId], [], []),
+    'generateCertificate' : IDL.Func([CourseId], [Certificate], []),
+    'generateChapterQuiz' : IDL.Func(
+        [CourseId, LessonId, IDL.Text],
+        [IDL.Variant({ 'ok' : IDL.Text, 'err' : IDL.Text })],
+        [],
+      ),
+    'generateInactivityNotifications' : IDL.Func(
+        [],
+        [IDL.Variant({ 'ok' : IDL.Nat, 'err' : IDL.Text })],
+        [],
+      ),
     'getAdminModelConfig' : IDL.Func([], [AIModelConfig], ['query']),
     'getCallerUserProfile' : IDL.Func(
         [],
@@ -783,12 +1120,27 @@ export const idlFactory = ({ IDL }) => {
     'getLessons' : IDL.Func([CourseId], [IDL.Vec(LessonPublic)], ['query']),
     'getMyCertificates' : IDL.Func([], [IDL.Vec(Certificate)], ['query']),
     'getMyEnrollments' : IDL.Func([], [IDL.Vec(EnrollmentPublic)], ['query']),
+    'getMyNotifications' : IDL.Func(
+        [IDL.Record({ 'unreadOnly' : IDL.Bool })],
+        [IDL.Vec(NotificationPublic)],
+        ['query'],
+      ),
     'getQuiz' : IDL.Func([LessonId], [IDL.Opt(QuizPublic)], ['query']),
+    'getResearchProject' : IDL.Func(
+        [IDL.Record({ 'projectId' : IDL.Nat })],
+        [IDL.Variant({ 'ok' : ResearchProjectPublic, 'err' : IDL.Text })],
+        ['query'],
+      ),
     'getResource' : IDL.Func([IDL.Nat], [IDL.Opt(ResourcePublic)], ['query']),
     'getUserProfile' : IDL.Func(
         [UserId],
         [IDL.Opt(UserProfilePublic)],
         ['query'],
+      ),
+    'importGoogleDocResource' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Principal],
+        [IDL.Variant({ 'ok' : IDL.Nat, 'err' : IDL.Text })],
+        [],
       ),
     'indexResourceText' : IDL.Func([IDL.Nat, IDL.Text], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
@@ -802,6 +1154,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(CoursePublic)],
         ['query'],
       ),
+    'listDomains' : IDL.Func([], [IDL.Vec(Domain)], ['query']),
     'listExternalCourses' : IDL.Func(
         [],
         [IDL.Vec(ExternalCoursePublic)],
@@ -812,12 +1165,32 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(CourseGenerationPublic)],
         ['query'],
       ),
+    'listMyResearchProjects' : IDL.Func(
+        [],
+        [IDL.Vec(ResearchProjectPublic)],
+        ['query'],
+      ),
     'listResources' : IDL.Func(
         [IDL.Opt(ResourceType), IDL.Opt(IDL.Text)],
         [IDL.Vec(ResourcePublic)],
         ['query'],
       ),
+    'markAllNotificationsRead' : IDL.Func(
+        [],
+        [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+        [],
+      ),
     'markLessonComplete' : IDL.Func([CourseId, LessonId], [], []),
+    'markNotificationRead' : IDL.Func(
+        [IDL.Record({ 'notifId' : IDL.Nat })],
+        [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+        [],
+      ),
+    'queryTutorHistory' : IDL.Func(
+        [IDL.Record({ 'courseId' : CourseId })],
+        [IDL.Vec(TutorMessage)],
+        ['query'],
+      ),
     'rejectGeneratedCourse' : IDL.Func(
         [IDL.Nat, IDL.Text],
         [CourseGenerationPublic],
@@ -830,16 +1203,36 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'runAIGeneration' : IDL.Func([IDL.Nat], [], []),
-    'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text, UserRole], [], []),
+    'saveCallerUserProfile' : IDL.Func(
+        [IDL.Text, IDL.Text, UserRole, IDL.Opt(IDL.Text)],
+        [],
+        [],
+      ),
     'saveLastViewedLesson' : IDL.Func([CourseId, LessonId], [], []),
     'searchCourses' : IDL.Func(
         [IDL.Text, IDL.Opt(IDL.Text)],
         [IDL.Vec(CoursePublic)],
         ['query'],
       ),
+    'searchRealLibraries' : IDL.Func(
+        [IDL.Text, IDL.Vec(IDL.Text)],
+        [IDL.Vec(IDL.Text)],
+        [],
+      ),
     'searchWorldLibraries' : IDL.Func(
         [LibrarySearchQuery],
         [IDL.Vec(LibrarySearchResult)],
+        [],
+      ),
+    'sendResearchMessage' : IDL.Func(
+        [
+          IDL.Record({
+            'step' : ResearchStep,
+            'userInput' : IDL.Text,
+            'projectId' : IDL.Nat,
+          }),
+        ],
+        [IDL.Variant({ 'ok' : IDL.Text, 'err' : IDL.Text })],
         [],
       ),
     'setAdminModelConfig' : IDL.Func([AIModelConfig], [], []),
@@ -856,8 +1249,33 @@ export const idlFactory = ({ IDL }) => {
         [TransformationOutput],
         ['query'],
       ),
+    'transformNotifHttpResponse' : IDL.Func(
+        [TransformationInput],
+        [TransformationOutput],
+        ['query'],
+      ),
+    'transformResearchHttpResponse' : IDL.Func(
+        [TransformationInput],
+        [TransformationOutput],
+        ['query'],
+      ),
+    'transformResourcesHttpResponse' : IDL.Func(
+        [TransformationInput],
+        [TransformationOutput],
+        ['query'],
+      ),
+    'transformTutorHttpResponse' : IDL.Func(
+        [TransformationInput],
+        [TransformationOutput],
+        ['query'],
+      ),
     'unenrollCourse' : IDL.Func([CourseId], [], []),
     'updateCourse' : IDL.Func([CourseId, CourseInput], [], []),
+    'updateDomain' : IDL.Func(
+        [IDL.Nat, DomainTier, IDL.Bool],
+        [IDL.Variant({ 'ok' : Domain, 'err' : IDL.Text })],
+        [],
+      ),
     'updateLesson' : IDL.Func([LessonId, LessonInput], [], []),
     'updateResourceMetadata' : IDL.Func(
         [
@@ -880,6 +1298,11 @@ export const idlFactory = ({ IDL }) => {
           IDL.Opt(IDL.Vec(IDL.Text)),
         ],
         [ResourcePublic],
+        [],
+      ),
+    'validateResearchStep' : IDL.Func(
+        [IDL.Record({ 'step' : ResearchStep, 'projectId' : IDL.Nat })],
+        [IDL.Variant({ 'ok' : ResearchProjectPublic, 'err' : IDL.Text })],
         [],
       ),
     'verifyCertificateQR' : IDL.Func(

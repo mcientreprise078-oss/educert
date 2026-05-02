@@ -26,6 +26,7 @@ export interface Certificate {
   'ministryReviewerName' : [] | [string],
   'approvedAt' : [] | [Timestamp],
   'isMinistryApproved' : boolean,
+  'portfolioPhotoUrl' : [] | [string],
   'resourceCitations' : Array<string>,
   'learnerId' : UserId,
   'learnerName' : string,
@@ -81,6 +82,17 @@ export interface CoursePublic {
 export type Difficulty = { 'intermediate' : null } |
   { 'beginner' : null } |
   { 'advanced' : null };
+export interface Domain {
+  'id' : bigint,
+  'name' : string,
+  'createdAt' : Timestamp,
+  'createdBy' : UserId,
+  'requiresManualApproval' : boolean,
+  'tier' : DomainTier,
+  'description' : string,
+}
+export type DomainTier = { 'vip' : null } |
+  { 'standard' : null };
 export interface EnrollmentPublic {
   'completedAt' : [] | [Timestamp],
   'lastLessonId' : [] | [LessonId],
@@ -150,8 +162,25 @@ export interface LibrarySearchResult {
   'year' : [] | [string],
   'description' : string,
   'author' : string,
+  'sourceType' : [] | [string],
   'coverUrl' : [] | [string],
+  'videoId' : [] | [string],
 }
+export interface NotificationPublic {
+  'id' : bigint,
+  'title' : string,
+  'userId' : UserId,
+  'notificationType' : NotificationType,
+  'createdAt' : Timestamp,
+  'isRead' : boolean,
+  'message' : string,
+  'courseId' : [] | [CourseId],
+}
+export type NotificationType = { 'course_update' : null } |
+  { 'certificate_issued' : null } |
+  { 'quiz_ready' : null } |
+  { 'inactivity_reminder' : null } |
+  { 'research_feedback' : null };
 export interface QuizAttempt {
   'answers' : Array<bigint>,
   'score' : bigint,
@@ -179,6 +208,34 @@ export interface QuizResult {
   'passed' : boolean,
 }
 export interface QuizSubmission { 'answers' : Array<bigint>, 'quizId' : QuizId }
+export interface ResearchProjectPublic {
+  'id' : bigint,
+  'status' : ResearchStatus,
+  'title' : string,
+  'userId' : UserId,
+  'createdAt' : Timestamp,
+  'resourceCitations' : Array<string>,
+  'updatedAt' : Timestamp,
+  'steps' : Array<[ResearchStep, ResearchStepDataPublic]>,
+  'currentStep' : ResearchStep,
+}
+export type ResearchStatus = { 'in_progress' : null } |
+  { 'completed' : null } |
+  { 'draft' : null };
+export type ResearchStep = { 'plan' : null } |
+  { 'problematique' : null } |
+  { 'hypotheses' : null } |
+  { 'sujet' : null } |
+  { 'methodologie' : null } |
+  { 'redaction' : null };
+export interface ResearchStepDataPublic {
+  'content' : string,
+  'resources' : Array<string>,
+  'validated' : boolean,
+  'step' : ResearchStep,
+  'validatedAt' : [] | [Timestamp],
+  'aiResponse' : string,
+}
 export interface ResourcePublic {
   'id' : bigint,
   'status' : ResourceStatus,
@@ -215,6 +272,17 @@ export interface TransformationOutput {
   'body' : Uint8Array,
   'headers' : Array<http_header>,
 }
+export interface TutorMessage {
+  'id' : bigint,
+  'lessonId' : LessonId,
+  'content' : string,
+  'userId' : UserId,
+  'createdAt' : Timestamp,
+  'role' : TutorMessageRole,
+  'courseId' : CourseId,
+}
+export type TutorMessageRole = { 'user' : null } |
+  { 'assistant' : null };
 export type UserId = Principal;
 export interface UserProfilePublic {
   'id' : UserId,
@@ -222,6 +290,7 @@ export interface UserProfilePublic {
   'name' : string,
   'createdAt' : Timestamp,
   'role' : UserRole,
+  'avatarUrl' : [] | [string],
 }
 export type UserRole = { 'ministryReviewer' : null } |
   { 'learner' : null } |
@@ -277,9 +346,42 @@ export interface _SERVICE {
     [bigint, string],
     CourseGenerationPublic
   >,
+  'askTutor' : ActorMethod<
+    [
+      {
+        'lessonId' : LessonId,
+        'question' : string,
+        'lessonContext' : string,
+        'courseId' : CourseId,
+      },
+    ],
+    { 'ok' : TutorMessage } |
+      { 'err' : string }
+  >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole__1], undefined>,
+  'clearMyNotifications' : ActorMethod<
+    [],
+    { 'ok' : null } |
+      { 'err' : string }
+  >,
+  'clearTutorHistory' : ActorMethod<
+    [{ 'courseId' : CourseId }],
+    { 'ok' : null } |
+      { 'err' : string }
+  >,
   'createCourse' : ActorMethod<[CourseInput], CourseId>,
+  'createDomain' : ActorMethod<
+    [string, DomainTier, string, boolean],
+    { 'ok' : Domain } |
+      { 'err' : string }
+  >,
+  'createResearchProject' : ActorMethod<
+    [{ 'title' : string }],
+    { 'ok' : ResearchProjectPublic } |
+      { 'err' : string }
+  >,
   'deleteCourse' : ActorMethod<[CourseId], undefined>,
+  'deleteDomain' : ActorMethod<[bigint], { 'ok' : null } | { 'err' : string }>,
   'deleteExternalCourse' : ActorMethod<
     [string],
     { 'ok' : null } |
@@ -289,6 +391,17 @@ export interface _SERVICE {
   'deleteQuiz' : ActorMethod<[LessonId], undefined>,
   'deleteResource' : ActorMethod<[bigint], undefined>,
   'enrollCourse' : ActorMethod<[CourseId], undefined>,
+  'generateCertificate' : ActorMethod<[CourseId], Certificate>,
+  'generateChapterQuiz' : ActorMethod<
+    [CourseId, LessonId, string],
+    { 'ok' : string } |
+      { 'err' : string }
+  >,
+  'generateInactivityNotifications' : ActorMethod<
+    [],
+    { 'ok' : bigint } |
+      { 'err' : string }
+  >,
   'getAdminModelConfig' : ActorMethod<[], AIModelConfig>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfilePublic]>,
   'getCallerUserRole' : ActorMethod<[], UserRole__1>,
@@ -300,20 +413,50 @@ export interface _SERVICE {
   'getLessons' : ActorMethod<[CourseId], Array<LessonPublic>>,
   'getMyCertificates' : ActorMethod<[], Array<Certificate>>,
   'getMyEnrollments' : ActorMethod<[], Array<EnrollmentPublic>>,
+  'getMyNotifications' : ActorMethod<
+    [{ 'unreadOnly' : boolean }],
+    Array<NotificationPublic>
+  >,
   'getQuiz' : ActorMethod<[LessonId], [] | [QuizPublic]>,
+  'getResearchProject' : ActorMethod<
+    [{ 'projectId' : bigint }],
+    { 'ok' : ResearchProjectPublic } |
+      { 'err' : string }
+  >,
   'getResource' : ActorMethod<[bigint], [] | [ResourcePublic]>,
   'getUserProfile' : ActorMethod<[UserId], [] | [UserProfilePublic]>,
+  'importGoogleDocResource' : ActorMethod<
+    [string, string, Principal],
+    { 'ok' : bigint } |
+      { 'err' : string }
+  >,
   'indexResourceText' : ActorMethod<[bigint, string], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listAllGenerations' : ActorMethod<[], Array<CourseGenerationPublic>>,
   'listCourses' : ActorMethod<[[] | [string]], Array<CoursePublic>>,
+  'listDomains' : ActorMethod<[], Array<Domain>>,
   'listExternalCourses' : ActorMethod<[], Array<ExternalCoursePublic>>,
   'listMyGenerations' : ActorMethod<[], Array<CourseGenerationPublic>>,
+  'listMyResearchProjects' : ActorMethod<[], Array<ResearchProjectPublic>>,
   'listResources' : ActorMethod<
     [[] | [ResourceType], [] | [string]],
     Array<ResourcePublic>
   >,
+  'markAllNotificationsRead' : ActorMethod<
+    [],
+    { 'ok' : null } |
+      { 'err' : string }
+  >,
   'markLessonComplete' : ActorMethod<[CourseId, LessonId], undefined>,
+  'markNotificationRead' : ActorMethod<
+    [{ 'notifId' : bigint }],
+    { 'ok' : null } |
+      { 'err' : string }
+  >,
+  'queryTutorHistory' : ActorMethod<
+    [{ 'courseId' : CourseId }],
+    Array<TutorMessage>
+  >,
   'rejectGeneratedCourse' : ActorMethod<
     [bigint, string],
     CourseGenerationPublic
@@ -324,12 +467,21 @@ export interface _SERVICE {
     CourseGenerationPublic
   >,
   'runAIGeneration' : ActorMethod<[bigint], undefined>,
-  'saveCallerUserProfile' : ActorMethod<[string, string, UserRole], undefined>,
+  'saveCallerUserProfile' : ActorMethod<
+    [string, string, UserRole, [] | [string]],
+    undefined
+  >,
   'saveLastViewedLesson' : ActorMethod<[CourseId, LessonId], undefined>,
   'searchCourses' : ActorMethod<[string, [] | [string]], Array<CoursePublic>>,
+  'searchRealLibraries' : ActorMethod<[string, Array<string>], Array<string>>,
   'searchWorldLibraries' : ActorMethod<
     [LibrarySearchQuery],
     Array<LibrarySearchResult>
+  >,
+  'sendResearchMessage' : ActorMethod<
+    [{ 'step' : ResearchStep, 'userInput' : string, 'projectId' : bigint }],
+    { 'ok' : string } |
+      { 'err' : string }
   >,
   'setAdminModelConfig' : ActorMethod<[AIModelConfig], undefined>,
   'setCoursePublished' : ActorMethod<[CourseId, boolean], undefined>,
@@ -340,8 +492,29 @@ export interface _SERVICE {
     [TransformationInput],
     TransformationOutput
   >,
+  'transformNotifHttpResponse' : ActorMethod<
+    [TransformationInput],
+    TransformationOutput
+  >,
+  'transformResearchHttpResponse' : ActorMethod<
+    [TransformationInput],
+    TransformationOutput
+  >,
+  'transformResourcesHttpResponse' : ActorMethod<
+    [TransformationInput],
+    TransformationOutput
+  >,
+  'transformTutorHttpResponse' : ActorMethod<
+    [TransformationInput],
+    TransformationOutput
+  >,
   'unenrollCourse' : ActorMethod<[CourseId], undefined>,
   'updateCourse' : ActorMethod<[CourseId, CourseInput], undefined>,
+  'updateDomain' : ActorMethod<
+    [bigint, DomainTier, boolean],
+    { 'ok' : Domain } |
+      { 'err' : string }
+  >,
   'updateLesson' : ActorMethod<[LessonId, LessonInput], undefined>,
   'updateResourceMetadata' : ActorMethod<
     [bigint, string, string, [] | [Array<string>], [] | [Array<string>]],
@@ -357,6 +530,11 @@ export interface _SERVICE {
       [] | [Array<string>],
     ],
     ResourcePublic
+  >,
+  'validateResearchStep' : ActorMethod<
+    [{ 'step' : ResearchStep, 'projectId' : bigint }],
+    { 'ok' : ResearchProjectPublic } |
+      { 'err' : string }
   >,
   'verifyCertificateQR' : ActorMethod<[string], [] | [CertificateVerification]>,
 }

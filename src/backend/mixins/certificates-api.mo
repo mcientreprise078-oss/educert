@@ -10,12 +10,57 @@ import CertTypes "../types/certificates";
 import GenTypes "../types/generation";
 import UserTypes "../types/users";
 import Common "../types/common";
+import CourseTypes "../types/courses";
+import DomainsLib "../lib/domains";
+import DomainTypes "../types/domains";
 
 mixin (
   accessControlState : AccessControl.AccessControlState,
   userProfiles : Map.Map<Common.UserId, UserTypes.UserProfile>,
   certificates : Map.Map<Common.CertificateId, CertTypes.Certificate>,
+  courses : Map.Map<Common.CourseId, CourseTypes.Course>,
+  domains : Map.Map<Nat, DomainTypes.Domain>,
 ) {
+  /// Génère un certificat pour l'apprenant sur un cours terminé
+  /// Vérifie si le domaine est VIP → approbation manuelle requise
+  /// Inclut la photo de profil de l'apprenant (avatarUrl) dans le certificat
+  public shared ({ caller }) func generateCertificate(
+    courseId : Common.CourseId,
+  ) : async CertTypes.Certificate {
+    if (caller.isAnonymous()) {
+      Runtime.trap("Non autorisé : connexion requise");
+    };
+    if (CertLib.hasCertificate(certificates, caller, courseId)) {
+      Runtime.trap("Certificat déjà émis pour ce cours");
+    };
+    let course = switch (courses.get(courseId)) {
+      case (?c) { c };
+      case null { Runtime.trap("Cours introuvable") };
+    };
+    let learnerProfile = switch (userProfiles.get(caller)) {
+      case (?p) { p };
+      case null { Runtime.trap("Profil apprenant introuvable") };
+    };
+    // Vérifier si le domaine est VIP (approbation manuelle)
+    let isVipDomain = DomainsLib.isVIP(domains, course.category);
+    let cert = CertLib.generate(
+      caller,
+      courseId,
+      learnerProfile.name,
+      course.title,
+      "",
+      learnerProfile.avatarUrl,
+    );
+    // Pour les domaines VIP, le certificat reste non approuvé (approbation manuelle par admin)
+    let finalCert : CertTypes.Certificate = if (isVipDomain) {
+      { cert with isMinistryApproved = false }
+    } else {
+      cert
+    };
+    certificates.add(finalCert.id, finalCert);
+    finalCert;
+  };
+
   /// Récupère tous les certificats de l'utilisateur connecté
   public query ({ caller }) func getMyCertificates() : async [CertTypes.Certificate] {
     if (caller.isAnonymous()) {

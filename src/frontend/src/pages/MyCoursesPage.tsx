@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DIFFICULTY_LABELS, SAMPLE_COURSES } from "@/lib/constants";
+import { DIFFICULTY_LABELS } from "@/lib/constants";
 import { useGetCourses, useGetEnrollments } from "@/lib/queries";
 import type { Difficulty } from "@/lib/types";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -17,18 +17,7 @@ export default function MyCoursesPage() {
 
   const enrolledCourses = (enrollments ?? [])
     .map((e) => {
-      const course =
-        (allCourses ?? []).find((c) => c.id === e.courseId) ??
-        (SAMPLE_COURSES.find((c) => c.id === e.courseId) as unknown as
-          | {
-              id: string;
-              title: string;
-              difficulty: Difficulty;
-              lessonCount: number;
-              thumbnail: string;
-              instructor: string;
-            }
-          | undefined);
+      const course = (allCourses ?? []).find((c) => c.id === e.courseId);
       return { enrollment: e, course };
     })
     .filter((item) => item.course != null);

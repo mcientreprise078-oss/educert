@@ -90,6 +90,8 @@ module {
     url : Text;
     previewUrl : ?Text;
     coverUrl : ?Text;
+    videoId : ?Text;  // Identifiant YouTube pour l'intégration vidéo
+    sourceType : ?Text;  // Type de source (ex: "youtube", "book", etc.)
   };
 
   /// Type d'API de bibliothèque mondiale disponible
@@ -100,6 +102,7 @@ module {
     #europeana;
     #googleBooks;
     #doaj;
+    #youtube;  // YouTube Data API
   };
 
   /// Requête de recherche dans les bibliothèques mondiales

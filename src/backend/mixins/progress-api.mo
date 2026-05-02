@@ -194,7 +194,7 @@ mixin (
       case (?p) { p.name };
       case null { course.instructorId.toText() };
     };
-    let cert = CertLib.generate(learnerId, courseId, learnerName, course.title, instructorName);
+    let cert = CertLib.generate(learnerId, courseId, learnerName, course.title, instructorName, null);
     certificates.add(cert.id, cert);
     enrollment.completedAt := ?cert.issuedAt;
   };

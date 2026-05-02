@@ -29,6 +29,13 @@ module {
           validationModel = "anthropic/claude-3.5-sonnet";
         };
       };
+      case (#gemini_flash) {
+        {
+          structureModel = "google/gemini-flash-1.5";
+          contentModel = "google/gemini-flash-1.5";
+          validationModel = "google/gemini-flash-1.5";
+        };
+      };
     };
   };
 

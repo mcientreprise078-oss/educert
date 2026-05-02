@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/components/NotificationBell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -156,6 +157,7 @@ export function Navbar() {
 
           {/* Auth area */}
           <div className="flex items-center gap-2">
+            {isAuthenticated && <NotificationBell />}
             {!isAuthenticated ? (
               <>
                 <Button

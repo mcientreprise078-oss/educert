@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { SAMPLE_COURSES } from "@/lib/constants";
+import { useGetCourses } from "@/lib/queries";
 import type { Difficulty } from "@/lib/types";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
@@ -76,7 +76,8 @@ export default function LandingPage() {
     }
   };
 
-  const featuredCourses = SAMPLE_COURSES.slice(0, 6);
+  const featuredCourses = useGetCourses();
+  const courses = featuredCourses.data ?? [];
 
   return (
     <Layout fullWidth>
@@ -189,7 +190,7 @@ export default function LandingPage() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
             data-ocid="featured_courses.list"
           >
-            {featuredCourses.map((course, i) => (
+            {courses.map((course, i) => (
               <CourseCard
                 key={course.id}
                 {...course}

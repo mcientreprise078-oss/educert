@@ -1,4 +1,5 @@
 import { ProgressBar } from "@/components/ProgressBar";
+import { TutorChat } from "@/components/TutorChat";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,14 +7,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  useGenerateChapterQuiz,
   useGetCourse,
   useGetCourseLessons,
   useGetEnrollment,
-  useGetQuiz,
   useMarkLessonComplete,
-  useSubmitQuiz,
 } from "@/lib/queries";
-import type { QuizResult } from "@/lib/types";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -23,12 +22,14 @@ import {
   ChevronRight,
   ListChecks,
   Loader2,
+  MessageSquare,
   PlayCircle,
   RotateCcw,
   Trophy,
+  X,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -51,6 +52,39 @@ function LessonContent({ content }: { content: string }) {
     <div className="space-y-3 text-foreground">
       {lines.map((line, i) => {
         const key = `line-${i}-${line.slice(0, 20)}`;
+
+        // Hybrid multimedia: [IMAGE: url]
+        const imgMatch = line.match(/^\[IMAGE:\s*(.+?)\]$/);
+        if (imgMatch) {
+          return (
+            <img
+              key={key}
+              src={imgMatch[1]}
+              alt="Illustration du cours"
+              className="rounded-lg max-w-full my-3 border border-border"
+            />
+          );
+        }
+
+        // Hybrid multimedia: [VIDEO: youtube_id]
+        const vidMatch = line.match(/^\[VIDEO:\s*([\w-]+)\]$/);
+        if (vidMatch) {
+          return (
+            <div
+              key={key}
+              className="relative w-full aspect-video rounded-xl overflow-hidden border border-border my-4"
+            >
+              <iframe
+                src={`https://www.youtube.com/embed/${vidMatch[1]}`}
+                title="Vidéo du cours"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 w-full h-full"
+              />
+            </div>
+          );
+        }
+
         if (line.startsWith("## ")) {
           return (
             <h2
@@ -107,81 +141,146 @@ function LessonContent({ content }: { content: string }) {
   );
 }
 
-interface QuizSectionProps {
-  lessonId: string;
+// AI-generated quiz types
+interface AIQuizQuestion {
+  id: string;
+  text: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+interface AIQuiz {
+  questions: AIQuizQuestion[];
+  passingScore: number;
+}
+
+interface AIQuizSectionProps {
   courseId: string;
-  isAlreadyComplete: boolean;
+  lessonId: string;
+  lessonContent: string;
   onComplete: () => void;
 }
 
-function QuizSection({ lessonId, onComplete }: QuizSectionProps) {
-  const { data: quiz, isLoading } = useGetQuiz(lessonId);
-  const submitQuiz = useSubmitQuiz();
+function AIQuizSection({
+  courseId,
+  lessonId,
+  lessonContent,
+  onComplete,
+}: AIQuizSectionProps) {
+  const generateQuiz = useGenerateChapterQuiz();
+  const [quiz, setQuiz] = useState<AIQuiz | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
-  const [result, setResult] = useState<QuizResult | null>(null);
+  const [score, setScore] = useState<number | null>(null);
+  const [showExplanations, setShowExplanations] = useState(false);
 
-  if (isLoading)
+  const _lessonKey = lessonId.toString();
+
+  useEffect(() => {
+    setQuiz(null);
+    setAnswers([]);
+    setScore(null);
+    setShowExplanations(false);
+    generateQuiz
+      .mutateAsync({ courseId, lessonId, lessonContent })
+      .then((result) => {
+        try {
+          setQuiz(JSON.parse(result) as AIQuiz);
+        } catch {
+          /* ignore parse error */
+        }
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonId, courseId, lessonContent, generateQuiz.mutateAsync]);
+
+  if (generateQuiz.isPending || (!quiz && !generateQuiz.isError)) {
     return (
-      <div className="flex justify-center py-6">
-        <LoadingSpinner />
+      <div
+        className="mt-8 border border-border rounded-xl p-6 flex flex-col items-center gap-3"
+        data-ocid="learn.ai_quiz.loading_state"
+      >
+        <Loader2 className="size-6 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">
+          Génération du quiz par l&apos;IA…
+        </p>
       </div>
     );
-  if (!quiz) return null;
-
-  async function handleSubmit() {
-    if (!quiz) return;
-    const res = await submitQuiz.mutateAsync({ lessonId, answers, quiz });
-    setResult(res);
-    if (res.passed) onComplete();
   }
 
-  function handleRetake() {
-    setResult(null);
-    setAnswers([]);
+  if (generateQuiz.isError || !quiz) {
+    return (
+      <div
+        className="mt-8 border border-destructive/30 rounded-xl p-5 bg-destructive/5"
+        data-ocid="learn.ai_quiz.error_state"
+      >
+        <p className="text-sm text-destructive">
+          Impossible de générer le quiz pour ce chapitre.
+        </p>
+      </div>
+    );
   }
 
+  const passed = score !== null && score >= quiz.passingScore;
   const allAnswered =
     answers.length === quiz.questions.length &&
     answers.every((a) => a !== undefined && a !== null);
 
+  function handleSubmit() {
+    if (!quiz) return;
+    const correct = quiz.questions.reduce(
+      (cnt, q, i) => (answers[i] === q.correctIndex ? cnt + 1 : cnt),
+      0,
+    );
+    const s = Math.round((correct / Math.max(1, quiz.questions.length)) * 100);
+    setScore(s);
+    setShowExplanations(true);
+    if (s >= quiz.passingScore) onComplete();
+  }
+
+  function handleRetake() {
+    setScore(null);
+    setAnswers([]);
+    setShowExplanations(false);
+  }
+
   return (
     <div
       className="mt-8 border border-border rounded-xl overflow-hidden"
-      data-ocid="learn.quiz.section"
+      data-ocid="learn.ai_quiz.section"
     >
       <div className="bg-muted/40 px-5 py-4 flex items-center gap-3 border-b border-border">
         <ListChecks className="size-5 text-primary shrink-0" />
         <div>
           <h3 className="font-display font-semibold text-foreground">
-            Quiz de validation
+            Quiz du Chapitre
           </h3>
           <p className="text-xs text-muted-foreground">
             {quiz.questions.length} questions · Score minimum :{" "}
             {quiz.passingScore}%
           </p>
         </div>
-        {result && (
+        {score !== null && (
           <Badge
             className="ml-auto"
-            variant={result.passed ? "default" : "destructive"}
+            variant={passed ? "default" : "destructive"}
           >
-            {result.passed
-              ? `Réussi · ${result.score}%`
-              : `Échoué · ${result.score}%`}
+            {passed ? `Réussi · ${score}%` : `Échoué · ${score}%`}
           </Badge>
         )}
       </div>
 
       <div className="p-5 space-y-6">
         {quiz.questions.map((q, qi) => (
-          <div key={q.id} data-ocid={`learn.quiz.question.${qi + 1}`}>
+          <div key={q.id} data-ocid={`learn.ai_quiz.question.${qi + 1}`}>
             <p className="font-medium text-foreground mb-3">
               <span className="text-muted-foreground text-sm mr-2">
                 {qi + 1}.
               </span>
               {q.text}
             </p>
-            {result ? (
+            {showExplanations ? (
               <div className="space-y-2">
                 {q.options.map((opt, oi) => {
                   const isSelected = answers[qi] === oi;
@@ -207,6 +306,11 @@ function QuizSection({ lessonId, onComplete }: QuizSectionProps) {
                     </div>
                   );
                 })}
+                {q.explanation && (
+                  <p className="text-xs text-muted-foreground bg-muted/30 border border-border rounded-lg px-3 py-2 mt-1">
+                    💡 {q.explanation}
+                  </p>
+                )}
               </div>
             ) : (
               <RadioGroup
@@ -222,14 +326,14 @@ function QuizSection({ lessonId, onComplete }: QuizSectionProps) {
                   <div
                     key={`${q.id}-opt-${oi}`}
                     className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors cursor-pointer"
-                    data-ocid={`learn.quiz.option.${qi + 1}.${oi + 1}`}
+                    data-ocid={`learn.ai_quiz.option.${qi + 1}.${oi + 1}`}
                   >
                     <RadioGroupItem
                       value={oi.toString()}
-                      id={`q${qi}-o${oi}`}
+                      id={`aiq${qi}-o${oi}`}
                     />
                     <label
-                      htmlFor={`q${qi}-o${oi}`}
+                      htmlFor={`aiq${qi}-o${oi}`}
                       className="text-sm text-muted-foreground cursor-pointer flex-1"
                     >
                       {opt}
@@ -241,12 +345,14 @@ function QuizSection({ lessonId, onComplete }: QuizSectionProps) {
           </div>
         ))}
 
-        {result ? (
-          <div className="flex items-center justify-between pt-2">
+        {score !== null ? (
+          <div className="space-y-3 pt-2">
             <div
-              className={`flex items-center gap-2 font-semibold ${result.passed ? "text-primary" : "text-destructive"}`}
+              className={`flex items-center gap-2 font-semibold ${
+                passed ? "text-primary" : "text-destructive"
+              }`}
             >
-              {result.passed ? (
+              {passed ? (
                 <>
                   <Trophy className="size-5" /> Félicitations ! Leçon validée.
                 </>
@@ -256,33 +362,44 @@ function QuizSection({ lessonId, onComplete }: QuizSectionProps) {
                 </>
               )}
             </div>
-            {!result.passed && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRetake}
-                data-ocid="learn.quiz.retake_button"
-              >
-                <RotateCcw className="size-3.5 mr-1.5" />
-                Réessayer
-              </Button>
+            {!passed && (
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    document
+                      .getElementById("lesson-content-top")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  data-ocid="learn.ai_quiz.reread_button"
+                >
+                  <BookOpen className="size-3.5 mr-1.5" />
+                  Relire le chapitre
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetake}
+                  data-ocid="learn.ai_quiz.retake_button"
+                >
+                  <RotateCcw className="size-3.5 mr-1.5" />
+                  Réessayer
+                </Button>
+              </div>
             )}
           </div>
         ) : (
           <Button
+            type="button"
             onClick={handleSubmit}
-            disabled={!allAnswered || submitQuiz.isPending}
+            disabled={!allAnswered}
             className="w-full"
-            data-ocid="learn.quiz.submit_button"
+            data-ocid="learn.ai_quiz.submit_button"
           >
-            {submitQuiz.isPending ? (
-              <>
-                <Loader2 className="size-4 mr-2 animate-spin" />
-                Correction en cours…
-              </>
-            ) : (
-              "Soumettre les réponses"
-            )}
+            Soumettre les réponses
           </Button>
         )}
       </div>
@@ -318,6 +435,13 @@ export default function LearnPage() {
       : (enrollment?.progress ?? 0);
 
   const [markLoading, setMarkLoading] = useState(false);
+  const [tutorOpen, setTutorOpen] = useState(false);
+  const [quizPassed, setQuizPassed] = useState(false);
+
+  // Reset quiz pass state when lesson changes
+  useEffect(() => {
+    setQuizPassed(false);
+  }, []);
 
   async function handleMarkComplete() {
     if (!currentLesson || isCurrentComplete) return;
@@ -334,6 +458,7 @@ export default function LearnPage() {
   }
 
   function handleQuizComplete() {
+    setQuizPassed(true);
     if (!currentLesson || isCurrentComplete) return;
     markComplete.mutate({
       courseId,
@@ -342,17 +467,55 @@ export default function LearnPage() {
     });
   }
 
-  // Show quiz on every 3rd lesson and on l1/l2
-  const hasQuiz =
-    currentLesson?.id === "l1" ||
-    currentLesson?.id === "l2" ||
-    currentIndex % 3 === 2;
+  // String IDs for hooks
+  const courseIdStr = courseId ?? "0";
+  const lessonIdStr = currentLesson?.id ?? lessonId ?? "l1";
+  const lessonContentExcerpt = (currentLesson?.content ?? "").slice(0, 500);
 
   return (
     <div
       className="min-h-screen bg-background flex flex-col"
       data-ocid="learn.page"
     >
+      {/* Mobile Tutor Drawer */}
+      {tutorOpen && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col lg:hidden"
+          data-ocid="tutor_chat.mobile_drawer"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setTutorOpen(false)}
+            aria-label="Fermer le tuteur"
+          />
+          <div className="absolute bottom-0 left-0 right-0 h-[70vh] bg-card rounded-t-2xl border-t border-border flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+              <span className="font-semibold text-sm text-foreground">
+                Tuteur IA
+              </span>
+              <button
+                type="button"
+                onClick={() => setTutorOpen(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                aria-label="Fermer"
+                data-ocid="tutor_chat.close_button"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <TutorChat
+                courseId={courseIdStr}
+                lessonId={lessonIdStr}
+                lessonTitle={currentLesson?.title ?? ""}
+                lessonContentExcerpt={lessonContentExcerpt}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <header className="bg-card border-b border-border px-4 py-3 flex items-center gap-4 sticky top-0 z-40 shadow-card">
         <Button
@@ -393,11 +556,22 @@ export default function LearnPage() {
               Complétée
             </Badge>
           )}
+          <Button
+            type="button"
+            variant={tutorOpen ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTutorOpen((v) => !v)}
+            className="flex items-center gap-1.5 text-xs"
+            data-ocid="learn.tutor_toggle_button"
+          >
+            <MessageSquare className="size-3.5" />
+            <span className="hidden sm:inline">Tuteur IA</span>
+          </Button>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
+      <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
+        {/* Lesson Sidebar */}
         <aside
           className="hidden lg:flex flex-col w-72 bg-card border-r border-border shrink-0"
           data-ocid="learn.sidebar"
@@ -468,7 +642,7 @@ export default function LearnPage() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-w-0">
           {lessonsLoading || !currentLesson ? (
             <div className="flex items-center justify-center h-64">
               <LoadingSpinner size="lg" />
@@ -499,7 +673,10 @@ export default function LearnPage() {
               )}
 
               {/* Lesson body */}
-              <div className="max-w-3xl mx-auto w-full px-6 py-8 space-y-8">
+              <div
+                id="lesson-content-top"
+                className="max-w-3xl mx-auto w-full px-6 py-8 space-y-8"
+              >
                 {/* Meta */}
                 <div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
@@ -530,9 +707,20 @@ export default function LearnPage() {
                   <LessonContent content={currentLesson.content} />
                 )}
 
-                {/* Mark complete (no quiz) */}
-                {!isCurrentComplete && !hasQuiz && (
+                {/* AI Chapter Quiz — always generated; blocks mark complete until passed */}
+                {currentLesson.content && (
+                  <AIQuizSection
+                    courseId={courseIdStr}
+                    lessonId={lessonIdStr}
+                    lessonContent={currentLesson.content}
+                    onComplete={handleQuizComplete}
+                  />
+                )}
+
+                {/* Mark complete: only show after quiz passed */}
+                {!isCurrentComplete && quizPassed && (
                   <Button
+                    type="button"
                     onClick={handleMarkComplete}
                     disabled={markLoading}
                     className="w-full sm:w-auto"
@@ -550,16 +738,6 @@ export default function LearnPage() {
                       </>
                     )}
                   </Button>
-                )}
-
-                {/* Quiz */}
-                {hasQuiz && (
-                  <QuizSection
-                    lessonId={currentLesson.id}
-                    courseId={courseId}
-                    isAlreadyComplete={isCurrentComplete}
-                    onComplete={handleQuizComplete}
-                  />
                 )}
 
                 <Separator />
@@ -599,6 +777,7 @@ export default function LearnPage() {
                     </Button>
                   ) : (
                     <Button
+                      type="button"
                       onClick={() => navigate({ to: "/certificates" })}
                       className="bg-accent text-accent-foreground hover:bg-accent/90"
                       data-ocid="learn.finish_button"
@@ -612,6 +791,21 @@ export default function LearnPage() {
             </>
           )}
         </main>
+
+        {/* Desktop Tutor Sidebar */}
+        {tutorOpen && (
+          <aside
+            className="hidden lg:flex flex-col w-80 bg-card border-l border-border shrink-0"
+            data-ocid="learn.tutor_sidebar"
+          >
+            <TutorChat
+              courseId={courseIdStr}
+              lessonId={lessonIdStr}
+              lessonTitle={currentLesson?.title ?? ""}
+              lessonContentExcerpt={lessonContentExcerpt}
+            />
+          </aside>
+        )}
       </div>
     </div>
   );
